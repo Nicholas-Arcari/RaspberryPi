@@ -176,6 +176,8 @@ Testare la condivisione di rete:
 ![](../img/12.jpg)
 
 - Inserisci username e password dell’utente OMV
+
+
 ![](../img/13.jpg)
 
 - Se non funziona, torna nella sezione utenti e abilita esplicitamente i permessi per la cartella
