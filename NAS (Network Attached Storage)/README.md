@@ -120,21 +120,21 @@ Controllare i dischi collegati
 
 - Vai su Storage → Disks
 - Qui dovresti vedere la memoria esterna collegata al Raspberry Pi (ad esempio NVMe o SSD)
-![](img/5.jpg)
+![](../img/5.jpg)
 
 Gestire i file system
 
 - Vai su Storage → File Systems
 - Dovrebbero comparire le partizioni del disco che vuoi usare
 - Da qui puoi formattare, montare e creare etichette per le partizioni se necessario
-![](img/6.jpg)
+![](../img/6.jpg)
 
 Creare cartelle condivise
 
 - Vai su Storage → Shared Folders
 - Crea le cartelle che vuoi condividere sul NAS
 - Imposta permessi per utenti e gruppi, scegliendo chi può leggere e scrivere
-![](img/7.jpg)
+![](../img/7.jpg)
 
 Differenza tra NFS e SMB
 
@@ -145,24 +145,24 @@ Configurare SMB
 
 - Vai su Services → SMB/CIFS → Settings
 - Abilita il gruppo di lavoro (checkbox principale)
-![](img/8.jpg)
+![](../img/8.jpg)
 
 - Vai su Services → SMB/CIFS → Shares
 - Seleziona la cartella condivisa
 - Controlla i permessi utente e gruppo
 Puoi divertirti a testare le differenze tra lettura/scrittura e sola lettura
-![](img/9.jpg)
+![](../img/9.jpg)
 
 Configurare NFS
 
 - Vai su Services → NFS → Settings
 - Abilita il servizio (spunta l’unico checkbox presente)
-![](img/10.jpg)
+![](../img/10.jpg)
 
 - Vai su Services → NFS → Shares
 - Seleziona la cartella condivisa
 - Imposta gli host autorizzati (es. 192.168.0.0/24 per tutta la rete locale)
-![](img/11.jpg)
+![](../img/11.jpg)
 
 Testare la condivisione di rete:
 
@@ -173,16 +173,16 @@ Testare la condivisione di rete:
 \\192.168.0.102\NomeCondivisione
 ```
 
-![](img/12.jpg)
+![](../img/12.jpg)
 
 - Inserisci username e password dell’utente OMV
-![](img/13.jpg)
+![](../img/13.jpg)
 
 - Se non funziona, torna nella sezione utenti e abilita esplicitamente i permessi per la cartella
-![](img/14.jpg)
+![](../img/14.jpg)
 
 Se tutto è configurato correttamente, potrai accedere alle cartelle condivise e leggere/scrivere file dai tuoi client
-![](img/15.jpg)
+![](../img/15.jpg)
 
 ---
 
