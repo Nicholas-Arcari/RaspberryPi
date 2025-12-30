@@ -1,7 +1,3 @@
-qui scrivo quale è il mio hardware e come impostare il sistema operativo
-
-dopo le foto, accedere all'interfaccia web del router, nel mio caso, all'indirizzo http://192.168.0.1
-
 ## Installazione del sistema operativo ( https://www.raspberrypi.com/software/ )
 
 1. Scaricare Raspberry Pi OS Lite (64-bit).
