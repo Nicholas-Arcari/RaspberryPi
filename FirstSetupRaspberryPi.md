@@ -1,4 +1,4 @@
-## Installazione del sistema operativo ( https://www.raspberrypi.com/software/ )
+# Installazione del sistema operativo ( https://www.raspberrypi.com/software/ )
 
 1. Scaricare Raspberry Pi OS Lite (64-bit).
 2. Scrivere l’immagine su microSD (Raspberry Pi Imager o simili).
