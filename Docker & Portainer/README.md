@@ -115,6 +115,8 @@ Spiegazione porte:
 
 8000 → tunnel agent Docker (utile per agenti remoti)
 
+![](../img/18.jpg)
+
 ### Accesso a Portainer
 
 Dal browser del PC:
