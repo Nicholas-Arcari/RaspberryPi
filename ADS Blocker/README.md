@@ -1,4 +1,4 @@
-# Pi-hole su Raspberry Pi 5 con Docker & MacVlan
+# Pi-hole con Docker & MacVlan
 
 Questa repository documenta la configurazione di un server DNS Pi-hole su Raspberry Pi 5, eseguito in un container Docker utilizzando una rete MacVlan.
 
