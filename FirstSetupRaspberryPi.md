@@ -65,7 +65,7 @@ Controllare versione EEPROM / bootloader:
 sudo rpi-eeprom-update
 ```
 
-e è disponibile un aggiornamento, installarlo:
+se è disponibile un aggiornamento, installarlo:
 
 ```bash
 sudo rpi-eeprom-update -a
