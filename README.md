@@ -8,16 +8,131 @@ La guida è pensata per essere riproducibile passo-passo, anche da chi parte da 
 
 ## Architettura del progetto
 ```bash
-Raspberry Pi
+Raspberry Pi 5 (8GB RAM)
 │
-├── OpenMediaVault (NAS principale)
+│ ## Hardware & Boot ##
+├── Boot & OS
+│   ├── Bootloader EEPROM aggiornato
+│   ├── Boot da NVMe (no MicroSD)
+│   └── Raspberry Pi OS Lite 64-bit (Bookworm)
 │
-└── Docker / Portainer
-    ├── VPN (WireGuard / OpenVPN)
-    ├── Ad-Blocker (Pi-hole / AdGuard Home)
-    ├── Honeypot (Cowrie, Dionaea, ecc...)
-    └── Altri servizi futuri
+├── Storage
+│   ├── NVMe SSD
+│   │   ├── / (root filesystem)
+│   │   ├── /var/lib/docker
+│   │   ├── /var/log
+│   │   └── PCAP / Log SIEM
+│   └── MicroSD (solo recovery / emergenza)
+│
+│ ## NAS & Storage Management ##
+├── OpenMediaVault (OMV 7)
+│   ├── Storage Management
+│   │   ├── Filesystem NVMe (EXT4)
+│   │   ├── Shared Folders
+│   │   └── ACL & Permissions
+│   │
+│   ├── Services
+│   │   ├── SMB/CIFS (Windows)
+│   │   ├── NFS (Linux)
+│   │   └── FTP/SFTP (opzionale)
+│   │
+│   └── Event Monitoring
+│       ├── SMART monitoring
+│       ├── Disk health alerts
+│       └── Log forwarding → Wazuh
+│
+│ ## Container Platform ##
+├── Container Platform
+│   ├── Docker Engine
+│   │   ├── Docker Root Dir → NVMe
+│   │   └── Logging driver configurato
+│   │
+│   ├── Portainer (Management Plane)
+│   │   ├── Stack management
+│   │   └── Role-based access
+│   │
+│   └── Docker Networks
+│       ├── dmz_net
+│       ├── internal_net
+│       └── management_net
+│
+│ ## Network Segmentation (Docker) ##
+├── DMZ Network
+│   ├── Reverse Proxy (Nginx / Traefik)
+│   ├── VPN (WireGuard / OpenVPN)
+│   └── Honeypots
+│       ├── Cowrie (SSH/Telnet)
+│       ├── Dionaea (Malware)
+│       └── (opz.) T-Pot stack
+│
+├── Internal Network
+│   ├── OpenMediaVault services
+│   ├── Pi-hole / AdGuard Home
+│   └── Internal-only containers
+│
+├── Management Network
+│   ├── Portainer
+│   ├── Wazuh Dashboard
+│   └── Monitoring tools
+│
+│ ## Security & Monitoring ##
+├── Wazuh SIEM (All-in-One)
+│   ├── Wazuh Manager
+│   ├── Wazuh Indexer (OpenSearch)
+│   └── Wazuh Dashboard
+│
+├── Wazuh Agents
+│   ├── Agent on Raspberry Pi (self-monitoring)
+│   ├── Agent on OMV services
+│   └── Agent on Windows / macOS PC
+│
+├── Integrations
+│   ├── VirusTotal API
+│   │   └── File hash scan on NAS uploads
+│   ├── Docker logs ingestion
+│   └── Syslog / Auth logs
+│
+└── Network Forensics
+    ├── Arkime (Full Packet Capture)
+    │   ├── PCAP storage → NVMe
+    │   └── Session analysis
+    │
+    └── Honeypot Telemetry
+        ├── Attack source IPs
+        ├── Payload analysis
+        └── Correlation with Wazuh alerts
 ```
+
+Riassunto TREE compatto:
+
+```bash
+Raspberry Pi 5 (8GB)
+│
+├── Boot & Storage (NVMe-first architecture)
+│
+├── OpenMediaVault 7
+│   └── NAS services & disk monitoring
+│
+├── Docker Platform
+│   ├── Portainer
+│   ├── Segmented Networks (DMZ / Internal / Management)
+│   └── Persistent volumes on NVMe
+│
+├── Security Stack
+│   ├── Wazuh SIEM (All-in-One)
+│   ├── Agents (Pi, OMV, Client PCs)
+│   └── VirusTotal integration
+│
+├── Network Protection
+│   ├── VPN (WireGuard)
+│   ├── Pi-hole / AdGuard
+│   └── Reverse Proxy
+│
+└── Threat Detection
+    ├── Honeypots (Cowrie, Dionaea, T-Pot)
+    └── Network Forensics (Arkime)
+```
+
 
 **Regola fondamentale:**  
 OpenMediaVault rimane il sistema principale.  
