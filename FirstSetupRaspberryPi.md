@@ -15,6 +15,41 @@ Accedere via SSH:
 ssh pi@<IP_DEL_RASPBERRY>
 ```
 
+Se da questo messaggio di output:
+
+```bash
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
+Someone could be eavesdropping on you right now (man-in-the-middle attack)!
+It is also possible that a host key has just been changed.
+The fingerprint for the ED25519 key sent by the remote host is 
+SHA256:OZs........9g.
+Please contact your system administrator.
+Add correct host key in C:\\Users\\Nick/.ssh/known_hosts to get rid of this message.
+Offending ECDSA key in C:\\Users\\Nick/.ssh/known_hosts:6
+Host key for <IP_DEL_RASPBERRY> has changed and you have requested strict checking.
+Host key verification failed.
+```
+SSH ti sta dicendo:
+
+"Mi ero salvato l’identità crittografica del server a <IP_DEL_RASPBERRY>, ma ora quella macchina presenta una chiave diversa."
+
+Questo succede quasi sempre quando:
+
+- hai reinstallato il sistema operativo sul Raspberry
+- hai riflashato la SD / NVMe
+- oppure un altro device ha preso lo stesso IP
+
+Soluzione: `ssh-keygen -R <IP_DEL_RASPBERRY>`
+
+Riprovare ad accedere via SSH:
+
+```bash
+ssh pi@<IP_DEL_RASPBERRY>
+```
+
 Aggiornare il sistema:
 
 ```bash
