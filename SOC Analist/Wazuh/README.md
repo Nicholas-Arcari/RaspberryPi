@@ -35,381 +35,248 @@ Soluzione consigliata: installare Wazuh Manager direttamente su Raspberry Pi per
 
 ---
 
-## Installare Wazuh Manager
+## Guida all'installazione
 
-Verifica architettura:
+### preparazione repository (ARM64)
 
-```bash
-uname -m
-```
-
-Deve uscire: `aarch64`
-
-Aggiorna il sistema:
+Lo script automatico fallisce nel rilevare l'architettura. Abbiamo aggiunto manualmente il repo forzando l'architettura `arm64`
 
 ```bash
-sudo apt update && sudo apt upgrade -y
-sudo reboot
-```
+sudo apt update && sudo apt install gnupg apt-transport-https -y
 
-Dopo il reboot rientra via SSH
+# Importazione chiave GPG (con privilegi corretti)
+curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import && sudo chmod 644 /usr/share/keyrings/wazuh.gpg
 
-### Aggiungi repository ufficiale Wazuh (ARM64)
+# Aggiunta Repository
+echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg arch=arm64] https://packages.wazuh.com/4.x/apt/ stable main" | sudo tee /etc/apt/sources.list.d/wazuh.list
 
-```bash
-curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo gpg --dearmor -o /usr/share/keyrings/wazuh.gpg
-echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt stable main" | sudo tee /etc/apt/sources.list.d/wazuh.list
 sudo apt update
-```
-
-Installa Wazuh Manager
-
-```bash
-sudo apt install wazuh-manager -y
-```
-
-Se ci mette un po’, è normale
-
-### Avvia e abilita Wazuh:
-
-```bash
-sudo systemctl enable wazuh-manager
-sudo systemctl start wazuh-manager
-```
-
-Verifica:
-
-```bash
-sudo systemctl status wazuh-manager
-```
-
-Devi vedere:
-
-```bash
-Active: active (running)
-```
-
-Verifica che Wazuh stia funzionando:
-
-```bash
-sudo /var/ossec/bin/wazuh-control status
-```
-
-Output atteso (simile):
-
-```bash
-wazuh-manager is running
-```
-
-Controlla i log
-
-```bash
-sudo tail -n 50 /var/ossec/logs/ossec.log
-```
-
-Se non vedi errori fatali, sei operativo
-
-### Verificare che Wazuh stia davvero lavorando
-
-```bash
-sudo /var/ossec/bin/wazuh-control status
-sudo tail -f /var/ossec/logs/ossec.log
-```
-
-### Usare Wazuh via CLI (modo corretto su RPi)
-
-Esempi:
-
-```bash
-sudo /var/ossec/bin/agent_control -l
-sudo /var/ossec/bin/list_agents -l
-sudo /var/ossec/bin/wazuh-logtest
 ```
 
 ---
 
-## Cosa sta già monitorando Wazuh (sul Raspberry)
+### Installazione Componenti
 
-Anche senza dashboard, Wazuh sta già lavorando
+Installiamo i tre pilastri principali manualmente
 
-### File Integrity Monitoring (FIM)
-
-Controlla modifiche a file critici:
-
-```bash
-/etc
-/usr/bin
-/usr/sbin
-/bin
-/sbin
-```
-
-Ad esempio, se qualcuno modifica /etc/passwd, Wazuh lo rileva.
-
-Verifica:
-
-```bash
-sudo grep -i integrity /var/ossec/logs/ossec.log | tail
-```
-
-### Log Analysis
-
-Sta leggendo automaticamente:
-
-```bash
-/var/log/auth.log (login SSH)
-/var/log/syslog
-/var/log/dpkg.log
-```
-
-Esempio pratico:
-
-```bash
-sudo grep -i ssh /var/ossec/logs/ossec.log | tail
-```
-
-Tentativi SSH falliti → allarme.
-
-### Rootcheck (rilevamento malware/rootkit)
-
-Controlla:
-
-- binari sospetti
-- permessi strani
-- file nascosti
-
-```bash
-sudo tail -n 50 /var/ossec/logs/rootcheck.log
-```
-
-### Processi e porte sospette
-
-Controlla:
-
-- processi in esecuzione
-- porte aperte
-- escalation di privilegi
-
-``` bash
-sudo grep -i process /var/ossec/logs/ossec.log | tail
-```
-
-### Stato interno di Wazuh
-
-```bash
-sudo /var/ossec/bin/wazuh-control status
-```
-
-Devi vedere:
-
-```bash
-wazuh-analysisd is running
-wazuh-logcollector is running
-wazuh-syscheckd is running
+```Bash
+sudo apt install wazuh-indexer wazuh-manager wazuh-dashboard -y
 ```
 
 ---
 
-## Installare Wazuh Indexer & Dashboard
+### Generazione e Configurazione Certificati
 
-Attenzione: queste non sono ufficialmente supportati, e, oltre a richiedere molte risorse, sono anche molto instabili per l'architettura `aarch64`
+Poiché l'installer automatico nel mio caso non ha funzionato, sono stati generati i certificati SSL manualmente
 
-Procediamo a installare Wazuh Indexer + Dashboard direttamente sul tuo Raspberry Pi, senza Docker.
+Scarica il tool:
 
-### Aggiungi il repository Wazuh
-
-```bash
-curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo gpg --dearmor -o /usr/share/keyrings/wazuh-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/wazuh-archive-keyring.gpg] https://packages.wazuh.com/4.x/apt/ stable main" | sudo tee /etc/apt/sources.list.d/wazuh.list
-sudo apt update
+```Bash
+curl -sO https://packages.wazuh.com/4.9/wazuh-certs-tool.sh
+curl -sO https://packages.wazuh.com/4.9/config.yml
 ```
 
-### Installa Wazuh Indexer (OpenSearch)
+Edita `config.yml` impostando l'IP dei nodi su `127.0.0.1` (Setup All-in-One)
 
-```bash
-sudo apt install wazuh-indexer -y
+Genera i certificati:
+
+```Bash
+sudo bash ./wazuh-certs-tool.sh -A
 ```
 
-### Installa Wazuh Dashboard
+Distribuisci i certificati (comandi eseguiti per ogni componente):
 
-```bash
-sudo apt install wazuh-dashboard -y
+```Bash
+# 1. Per Wazuh Indexer
+sudo mkdir -p /etc/wazuh-indexer/certs
+sudo cp wazuh-certificates/node-1.pem /etc/wazuh-indexer/certs/indexer.pem
+sudo cp wazuh-certificates/node-1-key.pem /etc/wazuh-indexer/certs/indexer-key.pem
+sudo cp wazuh-certificates/root-ca.pem /etc/wazuh-indexer/certs/
+sudo chmod 500 /etc/wazuh-indexer/certs
+sudo chmod 400 /etc/wazuh-indexer/certs/*
+sudo chown -R wazuh-indexer:wazuh-indexer /etc/wazuh-indexer/certs
+
+# 2. Per Wazuh Manager
+sudo mkdir -p /etc/wazuh-manager/certs
+sudo cp wazuh-certificates/node-1.pem /etc/wazuh-manager/certs/server.pem
+sudo cp wazuh-certificates/node-1-key.pem /etc/wazuh-manager/certs/server-key.pem
+sudo cp wazuh-certificates/root-ca.pem /etc/wazuh-manager/certs/
+sudo chmod 500 /etc/wazuh-manager/certs
+sudo chmod 400 /etc/wazuh-manager/certs/*
+sudo chown -R wazuh:wazuh /etc/wazuh-manager/certs
+
+# 3. Per Wazuh Dashboard
+sudo mkdir -p /etc/wazuh-dashboard/certs
+sudo cp wazuh-certificates/node-1.pem /etc/wazuh-dashboard/certs/dashboard.pem
+sudo cp wazuh-certificates/node-1-key.pem /etc/wazuh-dashboard/certs/dashboard-key.pem
+sudo cp wazuh-certificates/root-ca.pem /etc/wazuh-dashboard/certs/
+sudo chmod 500 /etc/wazuh-dashboard/certs
+sudo chmod 400 /etc/wazuh-dashboard/certs/*
+sudo chown -R wazuh-dashboard:wazuh-dashboard /etc/wazuh-dashboard/certs
+
+# 4. Per Filebeat (Il postino)
+sudo mkdir -p /etc/filebeat/certs
+sudo cp wazuh-certificates/node-1.pem /etc/filebeat/certs/filebeat.pem
+sudo cp wazuh-certificates/node-1-key.pem /etc/filebeat/certs/filebeat-key.pem
+sudo cp wazuh-certificates/root-ca.pem /etc/filebeat/certs/
+sudo chmod 500 /etc/filebeat/certs
+sudo chmod 400 /etc/filebeat/certs/*
+sudo chown -R root:root /etc/filebeat/certs
 ```
 
-Controlla:
+---
 
-```bash
-sudo nano /etc/wazuh-dashboard/opensearch_dashboards.yml
-```
+### COnfigurazione DAshboard
 
-Deve essere come segue:
+È necessario configurare la Dashboard per raggiungere l'Indexer e accettare i certificati generati
 
-```bash
+Modificare il file `/etc/wazuh-dashboard/opensearch_dashboards.yml` sostituendo il contenuto con:
+
+```YAML
 server.host: 0.0.0.0
-server.port: 5601
-server.ssl.enabled: false
-
-opensearch.hosts: http://localhost:9200
-opensearch.requestHeadersAllowlist: ["securitytenant","Authorization"]
-opensearch_security.multitenancy.enabled: false
-opensearch_security.readonly_mode.roles: ["kibana_read_only"]
+server.port: 443
+opensearch.hosts: https://127.0.0.1:9200
+opensearch.ssl.verificationMode: none
+opensearch.username: "admin"
+opensearch.password: "admin"
+server.ssl.enabled: true
+server.ssl.key: "/etc/wazuh-dashboard/certs/dashboard-key.pem"
+server.ssl.certificate: "/etc/wazuh-dashboard/certs/dashboard.pem"
+opensearch.ssl.certificateAuthorities: ["/etc/wazuh-dashboard/certs/root-ca.pem"]
 uiSettings.overrides.defaultRoute: /app/wz-home
-# Session expiration settings
-opensearch_security.cookie.ttl: 900000
-opensearch_security.session.ttl: 900000
-opensearch_security.session.keepalive: true
 ```
 
-### Avvia e abilita i servizi
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now wazuh-indexer
-sudo systemctl enable --now wazuh-dashboard
-```
-
-Verifica che siano attivi:
-
-```bash
-sudo systemctl status wazuh-indexer
-sudo systemctl status wazuh-dashboard
-```
-
-### Configura Wazuh Manager per connettersi all’Indexer
-
-Apri il file di configurazione del manager:
-
-```bash
-sudo nano /var/ossec/etc/ossec.conf
-```
-
-Trova (o aggiungi) la sezione `<elasticsearch>` e modifica così:
-
-```bash
-<elasticsearch>
-  <enabled>yes</enabled>
-  <host>http://127.0.0.1:9200</host>
-  <user>wazuh</user>
-  <password>wazuh_password</password>
-</elasticsearch>
-```
-
-Per ora useremo `user/password` di default. Poi li cambiamo.
-
-Salva e chiudi, poi riavvia il manager:
-
-```bash
-sudo systemctl restart wazuh-manager
-```
-
-### Testa la connessione
-
-Controlla i log:
-
-```bash
-sudo tail -f /var/ossec/logs/ossec.log
-```
-
-Dovresti vedere `IndexerConnector` initialized successfully.
-
-### Accedi alla Dashboard
-
-Apri nel browser:
-
-```bash
-http://IP_DEL_PI:5601
-```
-
-Credenziali di default:
-
-```bash
-user: admin
-password: admin
-```
-
-Dopo il primo login, cambia subito la password.
 
 ---
 
-## Rimozione Wazuh Indexer & Dashboard
+### Avvio e Inizializzazione Sicurezza
 
-Questa è la procedura completa per rimuovere tutto ciò che riguarda Wazuh Dashboard e Indexer e lasciare solo il Wazuh Manager funzionante sul Raspberry Pi aarch64
+Avvio del database e caricamento delle credenziali (creazione utente admin)
 
-### Ferma e disabilita i servizi Dashboard e Indexer
-
-```bash
-sudo systemctl stop wazuh-dashboard wazuh-indexer
-sudo systemctl disable wazuh-dashboard wazuh-indexer
+```Bash
+sudo systemctl enable wazuh-indexer
+sudo systemctl start wazuh-indexer
+# Attendere 30 secondi
+sudo /usr/share/wazuh-indexer/bin/indexer-security-init.sh
 ```
 
-### Rimuovi i pacchetti
+Output atteso: `Done with success`
 
-```bash
-sudo apt remove --purge wazuh-dashboard wazuh-indexer -y
-sudo apt autoremove -y
+Successivamente avviare Manager e Dashboard:
+
+```Bash
+sudo systemctl start wazuh-manager
+sudo systemctl start wazuh-dashboard
 ```
 
-### Cancella i file e directory residui
+---
 
-```bash
-sudo rm -rf /etc/wazuh-dashboard
-sudo rm -rf /var/lib/wazuh-dashboard
-sudo rm -rf /usr/share/wazuh-dashboard
+## Il "Postino": Configurazione Filebeat
 
-sudo rm -rf /usr/share/wazuh-indexer
-sudo rm -rf /var/lib/wazuh-indexer
-sudo rm -rf /etc/wazuh-indexer
+Un errore comune è vedere la Dashboard funzionante ma vuota ("No template found").
+
+Questo accade perché manca Filebeat, il componente che sposta i log dal Manager al Database
+
+### Installazione
+
+```Bash
+sudo apt install filebeat -y
 ```
 
-Questo elimina completamente ogni traccia dei due componenti problematici.
+### Configurazione (`/etc/filebeat/filebeat.yml`)
 
-## Verifica che rimanga solo il Manager
+Modificare il file `/etc/filebeat/filebeat.yml` sostituendo l'intero contenuto con il seguente blocco:
 
-```bash
+```YAML
+output.elasticsearch:
+  hosts: ["127.0.0.1:9200"]
+  protocol: https
+  username: "admin"
+  password: "admin" # O la password generata se diversa
+  ssl.certificate_authorities: ["/etc/filebeat/certs/root-ca.pem"]
+  ssl.certificate: "/etc/filebeat/certs/filebeat.pem"
+  ssl.key: "/etc/filebeat/certs/filebeat-key.pem"
+  ssl.verification_mode: none # Necessario se i certificati non matchano perfettamente l'hostname
+
+setup.template.json.enabled: true
+setup.template.json.path: '/etc/filebeat/wazuh-template.json'
+setup.template.json.name: 'wazuh'
+setup.ilm.overwrite: true
+setup.ilm.enabled: false
+
+filebeat.modules:
+  - module: wazuh
+    alerts:
+      enabled: true
+    archives:
+      enabled: false
+```
+
+Comandi correttivi eseguiti:
+
+```Bash
+# Scarica template JSON corretto
+sudo curl -so /etc/filebeat/wazuh-template.json https://raw.githubusercontent.com/wazuh/wazuh/v4.9.2/extensions/elasticsearch/7.x/wazuh-template.json
+sudo chmod 444 /etc/filebeat/wazuh-template.json
+
+# Setup del template nel database
+sudo filebeat setup --index-management
+
+# Riavvio
+sudo systemctl restart filebeat
+```
+
+---
+
+## Problemi Riscontrati & Risoluzione
+
+1. Errore Script "Uncompatible system"
+
+- Problema: Lo script `wazuh-install.sh` bloccava l'installazione su Raspberry Pi OS
+- Soluzione: Abbandonato lo script automatico a favore dell'installazione manuale tramite `apt` con repository forzato `arch=arm64`
+
+2. Permessi GPG
+
+- Problema: `curl ... | gpg ...` dava "Permission denied"
+- Causa: La pipe `|` eseguiva il secondo comando come utente normale
+- Soluzione: Aggiunto sudo esplicito dopo la pipe: `curl ... | sudo gpg ...`
+
+3. Errore Dashboard "No template found"
+
+- Problema: Accesso alla Dashboard possibile, ma errore rosso persistente e nessun dato visibile
+- Causa: Filebeat non configurato o ILM attivo che creava indici errati (`filebeat-7.x` invece di `wazuh-alerts-*`)
+- Soluzione: Disabilitato ILM nel config e lanciato `filebeat setup --index-management`
+
+4. Permessi Certificati
+
+- Problema: I servizi non partivano ("Permission denied" sui file `.pem`)
+- Soluzione: Uso di `chmod 500` sulle cartelle e `chmod 400` sui file, assicurandosi di assegnare il proprietario corretto (`chown wazuh:wazuh`, etc.)
+
+---
+
+## Stato Attuale
+
+Il sistema è pienamente operativo.
+
+- Dashboard: Raggiungibile via HTTPS su IP locale
+- Log: Ingestione attiva da Filebeat
+- Agenti: Configurabili su Windows/Linux puntando all'IP del Raspberry
+
+### Comandi Utili per Manutenzione
+
+Verifica stato servizi:
+
+```Bash
+sudo systemctl status wazuh-indexer
 sudo systemctl status wazuh-manager
+sudo systemctl status wazuh-dashboard
+sudo systemctl status filebeat
 ```
 
-Deve risultare attivo (running).
+Test output Filebeat (Debug connessione):
 
-Se non è attivo:
-
-```bash
-sudo systemctl enable --now wazuh-manager
-sudo systemctl restart wazuh-manager
+```Bash
+sudo filebeat test output
 ```
 
-### Pulizia dei log
-
-Se vuoi pulire i log residui di Dashboard/Indexer:
-
-```bash
-sudo rm -f /var/ossec/logs/wazuh-dashboard.log
-sudo rm -f /var/ossec/logs/wazuh-indexer.log
-```
-
-### Test funzionalità del Manager
-
-Puoi fare un semplice test:
-
-```bash
-sudo /var/ossec/bin/wazuh-control status
-```
-
-Dovresti vedere tutti i demoni essenziali attivi:
-
-```bash
-wazuh-modulesd
-wazuh-syscheckd
-wazuh-logcollector
-wazuh-analysisd
-ecc.
-```
-
-Puoi anche fare un test di monitoraggio creando un file di prova:
-
-```bash
-sudo touch /etc/test-wazuh
-sudo tail -f /var/ossec/logs/ossec.log
-```
-
-Dovresti vedere che `wazuh-syscheckd` rileva la nuova creazione del file.
+Reset Password Admin: Se necessario, utilizzare `wazuh-passwords-tool.sh` o reinstallare la security tramite `indexer-security-init.sh`
