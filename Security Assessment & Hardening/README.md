@@ -119,7 +119,11 @@ sudo ufw allow from 192.168.0.0/24 to any port 443  # Dashboard
 
 ### 4. Il Mistero dell'Agente "Disconnected"
 
-Durante i test, ho notato sulla Dashboard che l'agente Wazuh installato sulla mia macchina Kali risultava "Disconnected", anche se la macchina era accesa. La causa: Nella foga di chiudere tutte le porte con UFW (`default deny incoming`), avevo bloccato anche le porte che gli agenti usano per inviare i log al Manager. La soluzione: Ho dovuto aprire manualmente le porte di comunicazione Wazuh, ma limitandole strettamente alla rete locale:
+Durante i test, ho notato sulla Dashboard che l'agente Wazuh installato sulla mia macchina Kali risultava "Disconnected", anche se la macchina era accesa
+
+La causa: Nella foga di chiudere tutte le porte con UFW (`default deny incoming`), avevo bloccato anche le porte che gli agenti usano per inviare i log al Manager
+
+La soluzione: Ho dovuto aprire manualmente le porte di comunicazione Wazuh, ma limitandole strettamente alla rete locale:
 
 ```Bash
 sudo ufw allow from 192.168.0.0/24 to any port 1514 proto tcp # Canale Eventi
