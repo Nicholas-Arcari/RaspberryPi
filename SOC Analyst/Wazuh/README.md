@@ -1,6 +1,6 @@
-# Wazuh — SIEM & XDR su Raspberry Pi 5
+# Wazuh - SIEM & XDR su Raspberry Pi 5
 
-Guida completa all'installazione di Wazuh All-in-One (Manager + Indexer + Dashboard) su Raspberry Pi 5 con architettura ARM64. Questa installazione **non** e' supportata ufficialmente da Wazuh — documento qui il processo manuale che ho seguito, gli errori incontrati e le soluzioni adottate.
+Guida completa all'installazione di Wazuh All-in-One (Manager + Indexer + Dashboard) su Raspberry Pi 5 con architettura ARM64. Questa installazione **non** e' supportata ufficialmente da Wazuh - documento qui il processo manuale che ho seguito, gli errori incontrati e le soluzioni adottate.
 
 ---
 
@@ -42,7 +42,7 @@ Guida completa all'installazione di Wazuh All-in-One (Manager + Indexer + Dashbo
                                         visualizza e permette threat hunting
 ```
 
-**Perche' Filebeat?** Il Manager scrive gli alert in file JSON su disco. Filebeat agisce da "corriere" — legge questi file, li formatta e li invia all'Indexer via HTTPS. Senza Filebeat, la Dashboard sarebbe vuota perche' l'Indexer non riceverebbe dati.
+**Perche' Filebeat?** Il Manager scrive gli alert in file JSON su disco. Filebeat agisce da "corriere" - legge questi file, li formatta e li invia all'Indexer via HTTPS. Senza Filebeat, la Dashboard sarebbe vuota perche' l'Indexer non riceverebbe dati.
 
 ---
 
@@ -50,13 +50,13 @@ Guida completa all'installazione di Wazuh All-in-One (Manager + Indexer + Dashbo
 
 Wazuh e' progettato per architetture **x86_64**. Su Raspberry Pi (aarch64/ARM64):
 
-- Lo script di installazione automatico (`wazuh-install.sh`) **fallisce** con "Uncompatible system" — non riconosce ARM64
-- I container Docker ufficiali sono compilati per `amd64`, non per `arm64` — causano errori `exec format error` all'avvio
+- Lo script di installazione automatico (`wazuh-install.sh`) **fallisce** con "Uncompatible system" - non riconosce ARM64
+- I container Docker ufficiali sono compilati per `amd64`, non per `arm64` - causano errori `exec format error` all'avvio
 - Anche forzando `platform: linux/amd64` nel Docker Compose, la limitata RAM e le differenze architetturali impediscono a OpenSearch di partire
 
 **Soluzione adottata:** Installazione manuale dei pacchetti `.deb` ARM64 dal repository Wazuh, forzando l'architettura nel source list APT.
 
-> **Nota sulle risorse:** Il Raspberry Pi 5 con 8GB di RAM ce la fa, ma e' al limite. Con Wazuh All-in-One + Docker + Cowrie + Pi-hole attivi contemporaneamente, l'utilizzo RAM si aggira intorno ai 6-7GB. I 4GB non sarebbero sufficienti — l'Indexer (OpenSearch) richiede almeno 1GB di heap Java.
+> **Nota sulle risorse:** Il Raspberry Pi 5 con 8GB di RAM ce la fa, ma e' al limite. Con Wazuh All-in-One + Docker + Cowrie + Pi-hole attivi contemporaneamente, l'utilizzo RAM si aggira intorno ai 6-7GB. I 4GB non sarebbero sufficienti - l'Indexer (OpenSearch) richiede almeno 1GB di heap Java.
 
 ---
 
@@ -74,7 +74,7 @@ sudo apt update && sudo apt install gnupg apt-transport-https -y
 curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import && sudo chmod 644 /usr/share/keyrings/wazuh.gpg
 ```
 
-**Cosa fa:** Scarica la chiave pubblica GPG di Wazuh e la salva in un keyring dedicato. APT usera' questa chiave per verificare l'autenticita' dei pacchetti scaricati dal repository Wazuh — se un pacchetto e' stato manomesso, la firma non corrisponde e l'installazione viene bloccata.
+**Cosa fa:** Scarica la chiave pubblica GPG di Wazuh e la salva in un keyring dedicato. APT usera' questa chiave per verificare l'autenticita' dei pacchetti scaricati dal repository Wazuh - se un pacchetto e' stato manomesso, la firma non corrisponde e l'installazione viene bloccata.
 
 Il `chmod 644` e' necessario perche' `gpg` crea il file con permessi restrittivi, ma APT ha bisogno di leggerlo come utente non-root.
 
@@ -111,7 +111,7 @@ curl -sO https://packages.wazuh.com/4.9/config.yml
 
 #### Configurazione
 
-Editare `config.yml` impostando tutti gli IP dei nodi su `127.0.0.1` (setup All-in-One — tutti i servizi girano sulla stessa macchina):
+Editare `config.yml` impostando tutti gli IP dei nodi su `127.0.0.1` (setup All-in-One - tutti i servizi girano sulla stessa macchina):
 
 ```yaml
 nodes:
@@ -206,10 +206,10 @@ uiSettings.overrides.defaultRoute: /app/wz-home
 
 **Spiegazione parametri chiave:**
 
-- `server.host: 0.0.0.0` — ascolta su tutte le interfacce (raggiungibile dalla rete, non solo localhost)
-- `server.port: 443` — HTTPS standard. Richiede privilegi root o `cap_add NET_BIND_SERVICE` (le porte < 1024 sono privilegiate)
-- `opensearch.ssl.verificationMode: none` — in un setup All-in-One con certificati self-signed, la verifica del certificato fallisce perche' il CA non e' "trusted". In produzione si userebbe `full`
-- `opensearch.password: "admin"` — password di default. Viene cambiata con l'init di sicurezza (Step 5)
+- `server.host: 0.0.0.0` - ascolta su tutte le interfacce (raggiungibile dalla rete, non solo localhost)
+- `server.port: 443` - HTTPS standard. Richiede privilegi root o `cap_add NET_BIND_SERVICE` (le porte < 1024 sono privilegiate)
+- `opensearch.ssl.verificationMode: none` - in un setup All-in-One con certificati self-signed, la verifica del certificato fallisce perche' il CA non e' "trusted". In produzione si userebbe `full`
+- `opensearch.password: "admin"` - password di default. Viene cambiata con l'init di sicurezza (Step 5)
 
 ### Step 5: Avvio e inizializzazione
 
@@ -248,7 +248,7 @@ La Dashboard sara' raggiungibile su: `https://<IP_RASPBERRY>:443`
 
 Credenziali di default: `admin` / `admin`
 
-![Portainer — Creazione dello stack Wazuh tramite Docker Compose nell'interfaccia web](img/portainer-wazuh-stack.jpg)
+![Portainer - Creazione dello stack Wazuh tramite Docker Compose nell'interfaccia web](img/portainer-wazuh-stack.jpg)
 
 ---
 
@@ -353,7 +353,7 @@ Se mostra `ERROR`, verificare certificati, password e stato dell'Indexer.
 
 **Causa:** La pipe `|` esegue il secondo comando con i permessi dell'utente corrente (non root). `gpg` tentava di scrivere in `/usr/share/keyrings/` che richiede privilegi root.
 
-**Soluzione:** `curl ... | sudo gpg ...` — il `sudo` va sul secondo comando della pipe, non sul primo.
+**Soluzione:** `curl ... | sudo gpg ...` - il `sudo` va sul secondo comando della pipe, non sul primo.
 
 ### 3. Dashboard "No template found"
 
@@ -365,7 +365,7 @@ Se mostra `ERROR`, verificare certificati, password e stato dell'Indexer.
 
 **Soluzione:** Installato Filebeat, disabilitato ILM (`setup.ilm.enabled: false`) e forzato il caricamento del template corretto con `filebeat setup --index-management`.
 
-### 4. Servizi non partono — "Permission denied" sui certificati
+### 4. Servizi non partono - "Permission denied" sui certificati
 
 **Problema:** `systemctl start wazuh-indexer` falliva. I log mostravano "Permission denied" sui file `.pem`.
 
