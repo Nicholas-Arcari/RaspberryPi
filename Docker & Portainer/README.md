@@ -6,7 +6,7 @@ Questa guida documenta l'installazione di Docker e Portainer su un Raspberry Pi 
 
 ## Teoria: Perche' Docker su un NAS
 
-Docker e' una piattaforma di containerizzazione che permette di eseguire applicazioni in ambienti isolati (container) condividendo il kernel dell'host. A differenza delle Virtual Machine, i container non emulano hardware — usano le primitive del kernel Linux per l'isolamento:
+Docker e' una piattaforma di containerizzazione che permette di eseguire applicazioni in ambienti isolati (container) condividendo il kernel dell'host. A differenza delle Virtual Machine, i container non emulano hardware - usano le primitive del kernel Linux per l'isolamento:
 
 - **Namespaces**: isolano la visibilita' delle risorse. Ogni container ha il proprio albero dei processi (PID namespace), stack di rete (NET namespace), filesystem (MNT namespace) e hostname (UTS namespace). Un processo dentro un container non "vede" i processi dell'host
 - **Cgroups (Control Groups)**: limitano le risorse utilizzabili. Puoi imporre a un container un tetto massimo di RAM, CPU, I/O disco. Se un container impazzisce, non puo' saturare l'intero sistema
@@ -149,17 +149,17 @@ Spiegazione di ogni flag:
 
 | Flag | Significato |
 |---|---|
-| `-d` | Detached mode — il container gira in background |
+| `-d` | Detached mode - il container gira in background |
 | `--name portainer` | Nome del container per riferimento |
 | `--restart=always` | Il container si riavvia automaticamente dopo un crash o un reboot |
-| `-p 8000:8000` | Tunnel agent — usato per connettere Portainer a Docker Engine remoti |
-| `-p 9443:9443` | Web UI HTTPS — la dashboard di gestione |
+| `-p 8000:8000` | Tunnel agent - usato per connettere Portainer a Docker Engine remoti |
+| `-p 9443:9443` | Web UI HTTPS - la dashboard di gestione |
 | `-v /var/run/docker.sock:/var/run/docker.sock` | Monta il socket Docker dell'host nel container, dando a Portainer controllo completo su Docker |
 | `-v portainer_data:/data` | Monta il volume persistente per i dati di configurazione |
 
 > **Sulla sicurezza del Docker socket:** Montare `/var/run/docker.sock` dentro un container e' l'equivalente di dare accesso root sull'host. Portainer ne ha bisogno per gestire Docker, ma un attaccante che compromette Portainer avrebbe controllo completo sul sistema. Per questo, l'accesso a Portainer va protetto con password robusta e, idealmente, limitato via firewall alla sola rete locale.
 
-![Portainer — Container list mostra il container Portainer in stato "running"](img/portainer-container-list.jpg)
+![Portainer - Container list mostra il container Portainer in stato "running"](img/portainer-container-list.jpg)
 
 ### Accesso a Portainer
 
@@ -169,7 +169,7 @@ https://<IP_DEL_RASPBERRY>:9443
 
 Al primo accesso, Portainer chiede di creare un utente admin con password. Dopo il login, selezionare **Docker → Local** come endpoint.
 
-> **Il browser mostrera' un avviso di certificato:** Portainer genera un certificato SSL self-signed al primo avvio. Il browser non si fida di certificati non emessi da una CA riconosciuta. In un ambiente domestico, questo e' accettabile — aggiungi l'eccezione nel browser.
+> **Il browser mostrera' un avviso di certificato:** Portainer genera un certificato SSL self-signed al primo avvio. Il browser non si fida di certificati non emessi da una CA riconosciuta. In un ambiente domestico, questo e' accettabile - aggiungi l'eccezione nel browser.
 
 ---
 
@@ -196,7 +196,7 @@ docker run -d \
   portainer/portainer-ce:latest
 ```
 
-Il volume `portainer_data` **non viene toccato** — tutte le configurazioni, utenti e stack sono preservati.
+Il volume `portainer_data` **non viene toccato** - tutte le configurazioni, utenti e stack sono preservati.
 
 ### Pinning della versione (consigliato per produzione)
 
@@ -217,7 +217,7 @@ E usare `portainer/portainer-ce:2.21.4` nel comando `docker run` al posto di `la
 | Installare Docker da `get.docker.com` su OMV | Conflitti con systemd, possibili reboot loop |
 | Installare Portainer come plugin OMV | I plugin OMV hanno un ciclo di aggiornamento separato e possono restare indietro rispetto alle versioni ufficiali |
 | Usare `sudo` per ogni comando Docker | Indica che i permessi del gruppo non sono configurati correttamente |
-| Ignorare gli spazi su disco | Docker accumula immagini vecchie, layer e container fermi — `docker system prune` periodico |
+| Ignorare gli spazi su disco | Docker accumula immagini vecchie, layer e container fermi - `docker system prune` periodico |
 
 ---
 
@@ -246,4 +246,4 @@ docker inspect <nome_container>
 
 ---
 
-Prossimo step: [Secure your RaspberryPi](../Secure%20your%20RaspberryPi/) — hardening del sistema prima di esporre servizi.
+Prossimo step: [Secure your RaspberryPi](../Secure%20your%20RaspberryPi/) - hardening del sistema prima di esporre servizi.
