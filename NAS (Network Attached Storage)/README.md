@@ -1,4 +1,4 @@
-# NAS — Network Attached Storage con OpenMediaVault 7
+# NAS - Network Attached Storage con OpenMediaVault 7
 
 Questa sezione documenta la trasformazione del Raspberry Pi 5 in un NAS completo usando OpenMediaVault 7, dalla preparazione del disco NVMe alla configurazione delle condivisioni di rete accessibili da Windows, macOS e Linux.
 
@@ -68,7 +68,7 @@ sudo wipefs /dev/nvme0n1
 sudo wipefs -a /dev/nvme0n1
 ```
 
-**Cosa fa `wipefs`:** Non cancella i dati ma rimuove i "magic bytes" — sequenze di byte in posizioni note del disco che il kernel usa per identificare filesystem e tabelle delle partizioni. Senza questi marker, il disco appare vuoto al sistema.
+**Cosa fa `wipefs`:** Non cancella i dati ma rimuove i "magic bytes" - sequenze di byte in posizioni note del disco che il kernel usa per identificare filesystem e tabelle delle partizioni. Senza questi marker, il disco appare vuoto al sistema.
 
 > **CRITICO:** Non eseguire `wipefs` sul disco da cui stai facendo boot (`mmcblk0`). Se hai boot da NVMe, non eseguirlo sull'NVMe attivo. Controlla sempre con `lsblk` prima di procedere.
 
@@ -102,7 +102,7 @@ sudo mkfs.ext4 /dev/nvme0n1p1
 
 | Filesystem | Pro | Contro | Verdetto per RPi NAS |
 |---|---|---|---|
-| **EXT4** | Maturo, stabile, basso overhead, ottimo supporto Linux | No checksum dati, no snapshot nativi | **Scelta consigliata** — affidabile e leggero per ARM |
+| **EXT4** | Maturo, stabile, basso overhead, ottimo supporto Linux | No checksum dati, no snapshot nativi | **Scelta consigliata** - affidabile e leggero per ARM |
 | **Btrfs** | Snapshot, checksum, compressione, RAID nativo | Overhead CPU significativo, fragile su crash con RAID5/6 | Troppo pesante per RPi5 |
 | **XFS** | Eccellente per file grandi, scalabilita' | Non puo' essere ridimensionato verso il basso | Overkill per un NAS domestico |
 | **ZFS** | Enterprise-grade, self-healing, RAID-Z | Richiede almeno 8GB RAM solo per ZFS, non nativo nel kernel | Impossibile su RPi5 |
@@ -155,29 +155,29 @@ Credenziali di default:
 
 ---
 
-## Step 4: Configurazione OMV — Passo per Passo
+## Step 4: Configurazione OMV - Passo per Passo
 
 ### 4.1 Gestione Dischi
 
 Vai su **Storage → Disks**. Qui vedrai tutti i dispositivi di storage rilevati dal kernel.
 
-![OMV — Vista dei dischi collegati: MicroSD da 58GB e NVMe Patriot P320 da 238GB](img/omv-disks.jpg)
+![OMV - Vista dei dischi collegati: MicroSD da 58GB e NVMe Patriot P320 da 238GB](img/omv-disks.jpg)
 
 Nell'immagine si vede:
-- `/dev/mmcblk0` — la MicroSD da 58.30 GiB (boot)
-- `/dev/nvme0n1` — l'NVMe Patriot M.2 P320 256GB (storage NAS)
+- `/dev/mmcblk0` - la MicroSD da 58.30 GiB (boot)
+- `/dev/nvme0n1` - l'NVMe Patriot M.2 P320 256GB (storage NAS)
 
 Da questa vista puoi anche controllare lo stato **SMART** del disco cliccando sull'icona dell'ingranaggio. SMART (Self-Monitoring, Analysis and Reporting Technology) e' un sistema di diagnostica integrato in ogni SSD/HDD che monitora parametri come:
 
-- **Temperature**: un NVMe in un case chiuso puo' surriscaldarsi — sopra i 70C le prestazioni calano (thermal throttling)
+- **Temperature**: un NVMe in un case chiuso puo' surriscaldarsi - sopra i 70C le prestazioni calano (thermal throttling)
 - **Percentage Used**: indica quanta vita residua ha l'SSD basandosi sui cicli di scrittura consumati
-- **Media Errors**: errori non correggibili nella NAND — se questo numero cresce, il disco sta morendo
+- **Media Errors**: errori non correggibili nella NAND - se questo numero cresce, il disco sta morendo
 
 ### 4.2 Gestione Filesystem
 
 Vai su **Storage → File Systems**. Se hai formattato il disco da CLI (Step 2), vedrai la partizione EXT4 gia' presente. Altrimenti, puoi crearla da qui.
 
-![OMV — Gestione filesystem: partizioni montate e disponibili](img/omv-filesystems.jpg)
+![OMV - Gestione filesystem: partizioni montate e disponibili](img/omv-filesystems.jpg)
 
 Seleziona la partizione NVMe e clicca **Mount**. OMV aggiungera' automaticamente l'entry in `/etc/fstab` per il mount persistente al boot.
 
@@ -187,7 +187,7 @@ Seleziona la partizione NVMe e clicca **Mount**. OMV aggiungera' automaticamente
 
 Vai su **Storage → Shared Folders** e crea le cartelle che vuoi rendere accessibili via rete.
 
-![OMV — Creazione cartelle condivise con permessi](img/omv-shared-folders.jpg)
+![OMV - Creazione cartelle condivise con permessi](img/omv-shared-folders.jpg)
 
 Per ogni cartella puoi impostare:
 
@@ -214,22 +214,22 @@ OMV gestisce le ACL tramite la web UI, ma sotto il cofano usa i comandi `setfacl
 
 Vai su **Services → SMB/CIFS → Settings** e abilita il servizio.
 
-![OMV — Abilitazione del servizio SMB/CIFS](img/omv-smb-settings.jpg)
+![OMV - Abilitazione del servizio SMB/CIFS](img/omv-smb-settings.jpg)
 
 Parametri importanti:
 
 - **Workgroup**: deve corrispondere a quello dei client Windows (default: `WORKGROUP`)
-- **Min Protocol/Max Protocol**: SMB2 come minimo — SMB1 e' deprecato e vulnerabile (EternalBlue, WannaCry)
+- **Min Protocol/Max Protocol**: SMB2 come minimo - SMB1 e' deprecato e vulnerabile (EternalBlue, WannaCry)
 
 #### Creazione della condivisione
 
 Vai su **Services → SMB/CIFS → Shares** e aggiungi una nuova condivisione collegandola alla Shared Folder creata in precedenza.
 
-![OMV — Configurazione share SMB con permessi](img/omv-smb-shares.jpg)
+![OMV - Configurazione share SMB con permessi](img/omv-smb-shares.jpg)
 
 ### 4.5 Protocollo NFS (per Linux e macOS)
 
-**NFS (Network File System)** e' il protocollo nativo di condivisione file nel mondo UNIX/Linux. A differenza di SMB, NFS non ha un concetto nativo di "utente e password" per l'autenticazione — controlla l'accesso in base all'**indirizzo IP o subnet** del client.
+**NFS (Network File System)** e' il protocollo nativo di condivisione file nel mondo UNIX/Linux. A differenza di SMB, NFS non ha un concetto nativo di "utente e password" per l'autenticazione - controlla l'accesso in base all'**indirizzo IP o subnet** del client.
 
 | Aspetto | SMB | NFS |
 |---|---|---|
@@ -242,13 +242,13 @@ Vai su **Services → SMB/CIFS → Shares** e aggiungi una nuova condivisione co
 
 Vai su **Services → NFS → Settings** e abilita il servizio.
 
-![OMV — Abilitazione del servizio NFS](img/omv-nfs-settings.jpg)
+![OMV - Abilitazione del servizio NFS](img/omv-nfs-settings.jpg)
 
 #### Creazione della condivisione NFS
 
 Vai su **Services → NFS → Shares** e aggiungi una condivisione.
 
-![OMV — Configurazione share NFS con host autorizzati](img/omv-nfs-shares.jpg)
+![OMV - Configurazione share NFS con host autorizzati](img/omv-nfs-shares.jpg)
 
 Imposta:
 
@@ -266,13 +266,13 @@ Aprire Esplora File e digitare nella barra degli indirizzi:
 \\192.168.0.102\NomeCondivisione
 ```
 
-![Accesso alla condivisione NAS da Windows — barra degli indirizzi](img/windows-network-path.jpg)
+![Accesso alla condivisione NAS da Windows - barra degli indirizzi](img/windows-network-path.jpg)
 
 Windows chiedera' le credenziali:
 
 ![Richiesta credenziali per accesso SMB](img/windows-login.jpg)
 
-Inserire username e password dell'utente creato in OMV (NON `admin` — quell'utente e' solo per la web UI).
+Inserire username e password dell'utente creato in OMV (NON `admin` - quell'utente e' solo per la web UI).
 
 #### Da Linux
 
@@ -288,7 +288,7 @@ echo "//192.168.0.102/NomeCondivisione /mnt/nas cifs credentials=/home/nick/.smb
 
 Controllare i permessi utente nella sezione **Access Rights Management → Users**. L'utente deve avere permessi espliciti sulla Shared Folder.
 
-![OMV — Gestione permessi utente sulle cartelle condivise](img/omv-user-permissions.jpg)
+![OMV - Gestione permessi utente sulle cartelle condivise](img/omv-user-permissions.jpg)
 
 Se tutto e' configurato correttamente, vedrai i file condivisi accessibili dai client:
 
@@ -345,4 +345,4 @@ Da qui potrai aggiungere le librerie media puntando alle cartelle condivise del 
 
 ---
 
-Prossimo step: [Docker & Portainer](../Docker%20%26%20Portainer/) — installare la piattaforma container per tutti i servizi aggiuntivi.
+Prossimo step: [Docker & Portainer](../Docker%20%26%20Portainer/) - installare la piattaforma container per tutti i servizi aggiuntivi.
