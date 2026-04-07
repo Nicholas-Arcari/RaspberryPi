@@ -1,187 +1,280 @@
-# Raspberry Pi VPN Server con WireGuard & Docker
+# VPN Server — WireGuard su Docker con wg-easy
 
-Una guida completa passo-passo per trasformare un Raspberry Pi in un server VPN sicuro, utilizzando WireGuard (tramite wg-easy) su Docker
-
-Questa guida nasce dalla mia esperienza personale e copre non solo l'installazione software, ma anche le complesse configurazioni di rete (DMZ, NAT, DNS) necessarie per far funzionare il tutto dietro un provider con antenna (FWA)
+Guida completa per trasformare il Raspberry Pi in un server VPN usando WireGuard. Questa guida nasce dalla mia esperienza diretta e copre non solo l'installazione software, ma anche le complesse configurazioni di rete (DMZ, Double NAT, DDNS) che sono state necessarie per far funzionare il tutto con un provider FWA (Fixed Wireless Access).
 
 ---
 
-## Accenni Teorici
+## Teoria: VPN e WireGuard
 
-### Cos'è una VPN?
+### Cos'e' una VPN
 
-Una VPN (Virtual Private Network) crea un tunnel crittografato tra il tuo dispositivo (smartphone/laptop) e la tua rete di casa. Questo permette di:
-- Navigare in sicurezza su Wi-Fi pubblici (tutto il traffico passa crittografato da casa tua)
-- Accedere ai dispositivi della rete locale (NAS, Domotica, Stampanti) come se fossi seduto sul divano
+Una VPN (Virtual Private Network) crea un **tunnel crittografato** tra un dispositivo remoto (smartphone, laptop) e la rete di casa. Il traffico viaggia incapsulato all'interno di pacchetti cifrati — chiunque intercetti il traffico (ISP, Wi-Fi pubblico, attaccante MITM) vede solo dati illeggibili.
 
-### Perché WireGuard?
+Casi d'uso concreti:
 
-Rispetto a OpenVPN o IPSec, WireGuard è un protocollo moderno progettato per essere:
-- Più veloce: Prestazioni superiori e ping più basso
-- Più leggero: Meno consumo di batteria su smartphone
-- Più semplice: Configurazione basata su chiavi pubbliche/private
+- **Wi-Fi pubblico**: il traffico tra il tuo dispositivo e il router del bar e' in chiaro. Con la VPN, tutto passa cifrato fino a casa tua
+- **Accesso remoto alla LAN**: da fuori casa puoi raggiungere il NAS, la dashboard Wazuh, le telecamere, come se fossi collegato via Ethernet
+- **Elusione georestrizioni**: il tuo traffico Internet "esce" dall'IP di casa tua, non dall'IP dell'hotel o dell'aeroporto
 
-### L'Architettura
+### Perche' WireGuard e non OpenVPN/IPSec
 
-Il progetto utilizza Docker per containerizzare il servizio. Nello specifico, uso l'immagine [wg-easy](https://github.com/wg-easy/wg-easy) che offre, oltre al server VPN, una comoda interfaccia Web per generare file di configurazione e QR Code per i client
+| Caratteristica | WireGuard | OpenVPN | IPSec/IKEv2 |
+|---|---|---|---|
+| **Linee di codice** | ~4.000 | ~100.000+ | ~400.000+ |
+| **Superficie d'attacco** | Minima (auditabile) | Ampia | Molto ampia |
+| **Crittografia** | Fissa, moderna (vedi sotto) | Configurabile (rischio misconfiguration) | Configurabile |
+| **Performance** | Eccellente (kernel-space) | Buona (user-space) | Buona |
+| **Consumo batteria** | Basso (idle = 0 traffico) | Medio (keepalive continui) | Medio |
+| **Setup** | Chiavi pubbliche/private | Certificati PKI | Certificati PKI/PSK |
+
+### Crittografia di WireGuard (per i curiosi)
+
+WireGuard usa una suite crittografica fissa e moderna — nessuna negoziazione, nessuna scelta di cipher suite:
+
+| Funzione | Algoritmo | Scopo |
+|---|---|---|
+| Key exchange | **Curve25519** (ECDH) | Scambio chiavi Diffie-Hellman su curva ellittica |
+| Cifratura simmetrica | **ChaCha20** | Cifratura del tunnel (alternativa ad AES, ottimizzata per CPU senza AES-NI come ARM) |
+| MAC (autenticazione) | **Poly1305** | Verifica integrita' e autenticita' dei pacchetti |
+| Hashing | **BLAKE2s** | Derivazione chiavi e hashing interno |
+| Key derivation | **HKDF** | Derivazione di chiavi di sessione dalle chiavi condivise |
+
+> **Nota su ARM e ChaCha20:** AES-256 e' veloce su CPU x86 con l'istruzione AES-NI hardware. Il Raspberry Pi 5 (Cortex-A76) ha supporto ARMv8 Crypto Extensions, quindi AES e' comunque veloce. Tuttavia, ChaCha20 e' progettato per essere veloce anche senza accelerazione hardware, rendendolo una scelta robusta per qualsiasi piattaforma.
+
+Il **Noise Protocol Framework** (usato da WireGuard) gestisce l'handshake crittografico. In sintesi:
+
+1. I peer si scambiano chiavi pubbliche Curve25519 (fuori banda — manualmente o via QR code)
+2. All'inizio della sessione, eseguono un handshake a 1-RTT (1 Round Trip Time) per derivare le chiavi di sessione
+3. Le chiavi di sessione vengono ruotate ogni 2 minuti o dopo un certo volume di dati
+4. Se non c'e' traffico, WireGuard non invia nulla (a differenza di OpenVPN che manda keepalive) — da qui il basso consumo batteria
 
 ---
 
-## La sfida della Rete: DMZ e Doppio NAT
+## La sfida di rete: DMZ e Doppio NAT
 
-Prima di toccare il Raspberry, ho dovuto risolvere un problema critico di rete
+### Il problema del Double NAT
 
-### Il Problema
-La mia connessione Internet arriva tramite un'antenna FWA (Comeser) collegata al mio router personale (TP-Link). Questo creava una situazione di Doppio NAT:
-- NAT dell'Antenna (Provider)
-- NAT del Router TP-Link (Casa)
+Prima di configurare WireGuard, ho dovuto risolvere un problema di rete che bloccava completamente il port forwarding.
 
-Aprire le porte sul TP-Link non serviva a nulla, perché il traffico veniva bloccato "a monte" dall'antenna del provider
+La mia connessione Internet arriva tramite un'**antenna FWA** (provider: Comeser) collegata al mio router personale (TP-Link Archer C50). Questo creava una catena:
 
-### La Soluzione: DMZ (NAT 1:1)
+```
+Internet → [Antenna Provider (NAT #1)] → [Router TP-Link (NAT #2)] → [Raspberry Pi]
+```
 
-Ho contattato l'assistenza tecnica del provider chiedendo di mettere l'IP del mio router in DMZ (o abilitare un NAT 1 a 1)
-- Risultato: L'antenna ora instrada tutto il traffico in entrata direttamente al mio router TP-Link, bypassando il firewall del provider
-- Sicurezza: Dato che il mio router è ora esposto direttamente su Internet, ho disabilitato la gestione remota e impostato password robuste
+**Cos'e' il CGNAT (Carrier-Grade NAT):** Il provider assegna alla mia antenna un IP **privato** (tipo `10.x.x.x` o `100.64.x.x`) invece di un IP pubblico. Questo significa che il mio router, pur avendo un "IP WAN", ha in realta' un IP che non e' raggiungibile da Internet.
+
+**Come l'ho scoperto:** Controllando l'IP WAN sul router, vedevo un indirizzo `192.168.x.x` — chiaramente un IP privato. Il port forwarding sul TP-Link non serviva a nulla perche' il traffico veniva bloccato a monte, sul NAT del provider.
+
+### La soluzione: DMZ sul provider
+
+Ho contattato l'assistenza tecnica del provider FWA e ho chiesto di mettere l'IP del mio router in **DMZ** (Demilitarized Zone), ovvero di configurare un **NAT 1:1** che inoltra tutto il traffico in ingresso direttamente al mio router, bypassando il firewall del provider.
+
+```
+Internet → [Antenna Provider (DMZ → tutto il traffico al mio router)] → [Router TP-Link] → [Raspberry Pi]
+```
+
+Dopo questa modifica, il mio router vede un IP WAN pubblico e il port forwarding funziona normalmente.
+
+> **Nota sulla sicurezza:** Con la DMZ attiva, il router e' esposto direttamente su Internet. Ho preso queste precauzioni:
+> - Disabilitato la gestione remota del router (no accesso admin dall'esterno)
+> - Cambiato la password admin del router con una robusta
+> - Aperto solo le porte strettamente necessarie nel port forwarding
+> - Monitoraggio attivo con Wazuh degli accessi al Raspberry
 
 ---
 
 ## Prerequisiti
 
-- Hardware: Raspberry Pi (3, 4 o 5) con Raspberry Pi OS
-- Rete: IP Pubblico (o DDNS configurato)
-  - Accesso amministrativo al Router
-  - Porta 51820 UDP aperta verso il Raspberry
+| Requisito | Dettaglio |
+|---|---|
+| **Hardware** | Raspberry Pi con Raspberry Pi OS e Docker installato |
+| **IP statico locale** | Assegnare un IP fisso al Pi (es. `192.168.0.102`) tramite DHCP reservation sul router |
+| **DDNS** | Dominio dinamico (es. No-IP) che punta all'IP pubblico di casa |
+| **Port forwarding** | Porta 51820 UDP inoltrata al Raspberry Pi |
+| **IP pubblico** | O DMZ configurata sul provider (per CGNAT) |
 
 ---
 
-## Installazione Passo-Passo
+## Configurazione Router
 
-### Configurazione Router
+### 1. IP statico per il Raspberry Pi
 
-1. Indirizzo IP Fisso: Ho assegnato un IP statico al Raspberry (es. `192.168.0.102`) tramite Address Reservation nel router
+Sul router (TP-Link → DHCP → Address Reservation):
 
-2. DDNS: Ho registrato un dominio gratuito su [No-IP](https://www.noip.com) e configurato il client DDNS sul router. Questo assicura che il server sia raggiungibile anche se l'IP pubblico cambia
+- MAC Address del Raspberry Pi
+- IP riservato: `192.168.0.102`
 
-3. Port Forwarding: Ho creato una regola "Virtual Server":
-   - Porta: 51820 (Esterna), 51820 (Interna)
-   - IP: 192.168.0.102 (nel mio caso è l'indirizzo del raspberry)
-   - Protocollo: UDP
+Questo garantisce che il port forwarding punti sempre all'IP corretto, anche dopo un reboot del Pi.
 
-### Installazione di Docker sul Raspberry
+### 2. DDNS (Dynamic DNS)
 
-Se parti da un sistema pulito, ecco i comandi per installare il motore Docker
+L'IP pubblico assegnato dal provider puo' cambiare periodicamente (IP dinamico). Un servizio **DDNS** (Dynamic Domain Name System) associa un nome dominio fisso (es. `miodominio.ddns.net`) all'IP pubblico corrente.
+
+Ho usato **No-IP** (https://www.noip.com):
+
+1. Registrato un account gratuito
+2. Creato un hostname (es. `miodominio.ddns.net`)
+3. Configurato il client DDNS sul router (TP-Link → Dynamic DNS → No-IP)
+
+Il router aggiorna automaticamente l'associazione dominio → IP ogni volta che l'IP pubblico cambia.
+
+### 3. Port forwarding
+
+Sul router (TP-Link → Forwarding → Virtual Servers):
+
+| Campo | Valore |
+|---|---|
+| Service Port | 51820 |
+| Internal Port | 51820 |
+| IP Address | 192.168.0.102 |
+| Protocol | **UDP** |
+
+> **Perche' UDP e non TCP:** WireGuard usa esclusivamente UDP. A differenza di OpenVPN che puo' funzionare su TCP (port 443, per sembrare traffico HTTPS), WireGuard e' progettato attorno a UDP per minimizzare la latenza. Il protocollo gestisce internamente la ritrasmissione dei pacchetti persi, senza l'overhead di TCP.
+
+---
+
+## Installazione di WireGuard con Docker
+
+### Creazione della directory
 
 ```bash
-# Scarica ed esegue lo script ufficiale di installazione
-curl -fsSL [https://get.docker.com](https://get.docker.com) -o get-docker.sh
-sudo sh get-docker.sh
-
-# Aggiunge l'utente corrente al gruppo Docker (per non usare sempre sudo)
-sudo usermod -aG docker $USER
-
-# Ricarica i permessi del gruppo
-newgrp docker
-```
-
-### Configurazione di WireGuard (Docker Compose)
-
-Ho creato una cartella dedicata e il file di configurazione
-
-```Bash
 mkdir -p ~/wireguard
 cd ~/wireguard
-nano docker-compose.yml
 ```
 
-Ecco il contenuto del mio file docker-compose.yml
+### Docker Compose
 
-Nota: Ho dovuto applicare alcune correzioni specifiche (vedi sezione Troubleshooting)
+Creare il file `docker-compose.yml`:
 
-```YAML
+```yaml
 version: "3.8"
 services:
   wg-easy:
     environment:
-      # Il dominio DDNS configurato sul router
+      # Il dominio DDNS che punta al tuo IP pubblico
       - WG_HOST=miodominio.ddns.net
-      
-      # Password per accedere alla Web UI (http://IP-Raspberry:51821)
+
+      # Password per la Web UI di gestione
       - PASSWORD=LaMiaPasswordSegreta
-      
+
+      # Porta del tunnel VPN (deve corrispondere al port forwarding)
       - WG_PORT=51820
+
+      # Subnet interna della VPN — ogni client riceve un IP 10.8.0.x
       - WG_DEFAULT_ADDRESS=10.8.0.x
-      
-      # DNS impostati su Google (8.8.8.8) per garantire la navigazione
-      # Se si usa Pi-hole sulla stessa rete, si può mettere l'IP del Pi-hole qui.
+
+      # DNS usato dai client VPN
+      # 8.8.8.8 = Google DNS. Se hai Pi-hole, metti il suo IP
       - WG_DEFAULT_DNS=8.8.8.8
-      
+
+      # Subnet raggiungibili tramite VPN:
+      # - 192.168.0.0/24 = rete locale di casa
+      # - 10.8.0.0/24 = rete VPN (per comunicazione tra client VPN)
+      # - 0.0.0.0/0 = tutto il traffico (full tunnel)
       - WG_ALLOWED_IPS=192.168.0.0/24, 10.8.0.0/24, 0.0.0.0/0
-      
-      # Fix per connessioni mobili: abbassa la dimensione pacchetti
+
+      # MTU ridotto per compatibilita' con reti mobili
       - WG_MTU=1280
 
-    # IMPORTANTE: Uso la versione 13 per evitare problemi di hash della password
+    # IMPORTANTE: versione 13 — vedi troubleshooting
     image: ghcr.io/wg-easy/wg-easy:13
     container_name: wireguard
     volumes:
       - .:/etc/wireguard
     ports:
-      - "51820:51820/udp" # Tunnel VPN
-      - "51821:51821/tcp" # Interfaccia Web
+      - "51820:51820/udp"  # Tunnel VPN
+      - "51821:51821/tcp"  # Web UI di gestione
     restart: unless-stopped
     cap_add:
-      - NET_ADMIN
-      - SYS_MODULE
+      - NET_ADMIN     # Necessario per creare interfacce di rete
+      - SYS_MODULE    # Necessario per caricare il modulo kernel WireGuard
     sysctls:
-      - net.ipv4.ip_forward=1
-      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv4.ip_forward=1           # Abilita il routing tra interfacce
+      - net.ipv4.conf.all.src_valid_mark=1  # Necessario per il masquerading
 ```
 
-### Avvio del Server
+### Spiegazione dei parametri chiave
 
-```Bash
+**`WG_ALLOWED_IPS`** — Controlla quali destinazioni sono raggiungibili tramite il tunnel VPN:
+
+- `192.168.0.0/24`: solo traffico verso la LAN di casa passa per la VPN (split tunnel)
+- `0.0.0.0/0`: TUTTO il traffico passa per la VPN, incluso il browsing web (full tunnel)
+- La combinazione che uso include entrambi, dando al client pieno accesso sia alla LAN che a Internet tramite il tunnel
+
+**`WG_MTU=1280`** — Il MTU (Maximum Transmission Unit) e' la dimensione massima di un pacchetto di rete. Il valore standard e' 1500 byte. WireGuard aggiunge un header di ~60-80 byte a ogni pacchetto (encapsulation), quindi il MTU effettivo deve essere ridotto. Con 1280:
+
+```
+[IP header: 20B] [UDP header: 8B] [WG header: ~32B] [Payload: 1280B] = ~1340B < 1500B
+```
+
+Su reti mobili 4G/5G, il MTU del provider puo' essere gia' ridotto (1400-1420). Se il pacchetto WireGuard supera il MTU del provider, viene frammentato, causando rallentamenti o timeout. 1280 e' il minimo garantito da IPv6 e funziona ovunque.
+
+### Avvio
+
+```bash
 docker compose up -d
 ```
 
-Se tutto va bene, il container si avvierà e sarà possibile accedere all'interfaccia web su `http://192.168.0.102:51821`
+Web UI raggiungibile su: `http://192.168.0.102:51821`
 
 ---
 
-## Troubleshooting: Problemi Riscontrati e Soluzioni
+## Troubleshooting — Problemi reali e soluzioni
 
-Durante il processo ho incontrato diversi ostacoli. Ecco come li ho risolti per far risparmiare tempo a voi
+### Problema 1: Container in bootloop (errore password)
 
-### Problema 1: Bootloop del container (Errore Password)
+**Sintomo:** Il container si riavvia all'infinito. I log (`docker logs wireguard`) mostrano errori relativi all'hash della password.
 
-Inizialmente, il container si riavviava all'infinito
+**Causa:** La versione 14+ di wg-easy ha cambiato il formato della password: non accetta piu' testo in chiaro nella variabile `PASSWORD`, ma richiede un hash Bcrypt pre-generato nella variabile `PASSWORD_HASH`.
 
-- Causa: L'ultima versione (latest o v14) di wg-easy obbliga a usare l'hash Bcrypt per la password invece del testo in chiaro
-- Soluzione: Ho forzato l'uso della versione 13 nel file docker-compose (image: ghcr.io/wg-easy/wg-easy:13), che accetta ancora password semplici come variabile d'ambiente
+**Soluzione:** Ho fissato la versione a **13** nel Docker Compose (`image: ghcr.io/wg-easy/wg-easy:13`), che accetta ancora password in chiaro. Se vuoi usare la v14+, devi:
 
-### Problema 2: Connesso ma senza Internet (Il limbo)
+```bash
+# Generare l'hash Bcrypt
+docker run -it ghcr.io/wg-easy/wg-easy wgpw 'LaMiaPasswordSegreta'
 
-Il telefono si connetteva alla VPN (handshake ok), ma non caricava nessuna pagina web.
+# Usare il risultato nel compose:
+# - PASSWORD_HASH=$$2a$$12$$xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Nota: i $ vanno raddoppiati ($$) nel file YAML per evitare l'escape
+```
 
-- Causa: Avevo impostato come DNS un indirizzo IP locale (`192.168.0.250`) destinato a un futuro Pi-hole, che però al momento non esisteva. La VPN cercava un server DNS inesistente
-- Soluzione: Ho modificato `WG_DEFAULT_DNS=8.8.8.8` nel compose file e, cosa fondamentale, ho rigenerato il client (cancellato e ricreato nell'interfaccia web) per aggiornare le impostazioni sul telefono
+### Problema 2: Connesso ma senza Internet ("Il limbo")
 
-### Problema 3: MTU e Reti Mobili
+**Sintomo:** Il telefono si connette alla VPN (handshake completato, traffico visibile), ma nessuna pagina web si carica.
 
-Sotto alcune reti 4G, la connessione risultava instabile
+**Causa:** Avevo impostato `WG_DEFAULT_DNS=192.168.0.250` pensando di usare il Pi-hole futuro. Ma il Pi-hole non era ancora installato. Il client VPN inviava le query DNS a un server inesistente.
 
-- Soluzione: Ho aggiunto la riga `WG_MTU=1280` nel docker-compose. Questo riduce la dimensione dei pacchetti per evitare frammentazione e blocchi causati dal doppio incapsulamento (VPN + Provider FWA)
+**Soluzione:** Cambiato a `WG_DEFAULT_DNS=8.8.8.8` (Google DNS) e, **passaggio critico**, ho cancellato e ricreato il client dalla Web UI. Le impostazioni DNS vengono "cotte" nel file di configurazione del client al momento della creazione. Modificare il server-side non aggiorna i client gia' generati.
+
+### Problema 3: Instabilita' su reti mobili 4G
+
+**Sintomo:** Su Wi-Fi di casa, la VPN funziona perfettamente. Su rete mobile 4G, la connessione e' lenta o cade dopo pochi secondi.
+
+**Causa:** Frammentazione dei pacchetti. Il MTU di default di WireGuard (~1420) sommato all'overhead dell'operatore mobile (che incapsula ulteriormente il traffico) superava il MTU fisico del link, causando frammentazione e ritrasmissioni.
+
+**Soluzione:** Aggiunto `WG_MTU=1280` nel Docker Compose. 1280 byte e' il valore piu' conservativo che garantisce la compatibilita' con qualsiasi rete, incluse quelle mobili con tunnel GTP.
 
 ---
 
-## Utilizzo
+## Utilizzo quotidiano
 
-Apri il browser e vai su `http://IP-Raspberry:51821`
+1. Apri il browser e vai su `http://<IP_RASPBERRY>:51821`
+2. Inserisci la password
+3. Clicca **+ New Client** e dai un nome (es. "iPhone", "Laptop-Lavoro")
+4. Scarica l'app **WireGuard** sul dispositivo (iOS, Android, Windows, macOS, Linux)
+5. Scansiona il **QR Code** generato dalla Web UI (o scarica il file `.conf`)
+6. Attiva la VPN quando sei fuori casa
 
-Crea un nuovo client (es. "iPhone")
+### Test di verifica
 
-Scarica l'app WireGuard sul telefono
+Per confermare che la VPN funzioni:
 
-Scansiona il QR Code generato dal sito
+1. Connetti il telefono all'**hotspot cellulare** (simula una rete esterna)
+2. Attiva la VPN
+3. Prova a raggiungere la Web UI di Portainer (`https://192.168.0.102:9443`)
+4. Se si carica, la VPN funziona e hai accesso alla LAN di casa
 
-Attiva la VPN quando sei fuori casa: navigazione sicura e accesso alla LAN garantiti
+---
+
+Prossimo step: [ADS Blocker](../ADS%20Blocker/) — Pi-hole come DNS sinkhole per bloccare pubblicita' e tracking.

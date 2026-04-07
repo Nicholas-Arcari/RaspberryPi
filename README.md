@@ -1,150 +1,164 @@
-# Raspberry Pi Server – NAS, VPN, Ad-Blocker, Honeypot, ecc...
+# Raspberry Pi 5 - Home Lab di Cyber Security & NAS
 
-Questo repository documenta i setup da applicare su di un Raspberry Pi utilizzato come server multifunzione, basato su **OpenMediaVault (OMV)** come sistema NAS e **Docker** per l’esecuzione di servizi aggiuntivi come VPN, ad-blocker, honeypot, e molti altri giochini simpatici.
+> Documentazione completa di un progetto reale per trasformare un Raspberry Pi 5 in un server multifunzione: NAS, SIEM, Honeypot, VPN, DNS Sinkhole e molto altro. Scritto da chi ci ha messo le mani, con errori, fix e lezioni imparate sul campo.
 
-La guida è pensata per essere riproducibile passo-passo, anche da chi parte da zero.
+Questo repository raccoglie l'intera esperienza - dalla prima accensione al deployment finale - di un Raspberry Pi 5 configurato come infrastruttura di sicurezza domestica. Non e' una raccolta di comandi copiati da StackOverflow: ogni sezione documenta il **perche'** di ogni scelta, i problemi incontrati e le soluzioni adottate.
+
+Il sistema operativo di base e' **OpenMediaVault 7** (Debian-based), scelto per la gestione NAS nativa. Tutti i servizi aggiuntivi (SIEM, VPN, Honeypot, DNS Blocker) girano in **container Docker**, garantendo isolamento, portabilita' e la possibilita' di distruggere e ricreare un servizio senza toccare il sistema host.
+
+---
+
+## Indice delle sezioni
+
+| # | Sezione | Descrizione |
+|---|---------|-------------|
+| 1 | [First Setup](./First%20Setup/) | Installazione OS, boot da NVMe, configurazione iniziale SSH e bootloader |
+| 2 | [NAS (Network Attached Storage)](./NAS%20(Network%20Attached%20Storage)/) | OpenMediaVault 7, filesystem, condivisioni SMB/NFS, Plex Media Server |
+| 3 | [Docker & Portainer](./Docker%20%26%20Portainer/) | Installazione Docker su OMV, Portainer come management plane |
+| 4 | [Secure your RaspberryPi](./Secure%20your%20RaspberryPi/) | Hardening SSH, Fail2ban, UFW, aggiornamenti automatici, Wazuh FIM |
+| 5 | [VLAN (Virtual LAN)](./VLAN%20(Virtual%20LAN)/) | Segmentazione di rete con IPVLAN e VLAN tagging 802.1Q |
+| 6 | [VPN (Virtual Private Network)](./VPN%20(Virtual%20Private%20Network)/) | WireGuard server con wg-easy, DDNS, gestione Double NAT/CGNAT |
+| 7 | [ADS Blocker](./ADS%20Blocker/) | Pi-hole su Docker con rete MacVLAN, configurazione DNS e router |
+| 8 | [Honeypot](./Honeypot/) | Cowrie SSH/Telnet honeypot con integrazione Wazuh SIEM |
+| 9 | [SOC Analyst](./SOC%20Analyst/) | Ruolo e strumenti dell'analista SOC, con sotto-sezione Wazuh SIEM/XDR |
+| 10 | [Security Assessment & Hardening](./Security%20Assessment%20%26%20Hardening/) | Red teaming del proprio lab: Nmap, Hydra, analisi rischi, firewall tuning |
 
 ---
 
 ## Architettura del progetto
-```bash
-Raspberry Pi 5 (8GB RAM)
-│
-│ ## Hardware & Boot ##
-├── Boot & OS
-│   ├── Bootloader EEPROM aggiornato
-│   ├── Boot da NVMe (no MicroSD)
-│   └── Raspberry Pi OS Lite 64-bit (Bookworm)
-│
-├── Storage
-│   ├── NVMe SSD
-│   │   ├── / (root filesystem)
-│   │   ├── /var/lib/docker
-│   │   ├── /var/log
-│   │   └── PCAP / Log SIEM
-│   └── MicroSD (solo recovery / emergenza)
-│
-│ ## NAS & Storage Management ##
-├── OpenMediaVault (OMV 7)
-│   ├── Storage Management
-│   │   ├── Filesystem NVMe (EXT4)
-│   │   ├── Shared Folders
-│   │   └── ACL & Permissions
-│   │
-│   ├── Services
-│   │   ├── SMB/CIFS (Windows)
-│   │   ├── NFS (Linux)
-│   │   └── FTP/SFTP (opzionale)
-│   │
-│   └── Event Monitoring
-│       ├── SMART monitoring
-│       ├── Disk health alerts
-│       └── Log forwarding → Wazuh
-│
-│ ## Container Platform ##
-├── Container Platform
-│   ├── Docker Engine
-│   │   ├── Docker Root Dir → NVMe
-│   │   └── Logging driver configurato
-│   │
-│   ├── Portainer (Management Plane)
-│   │   ├── Stack management
-│   │   └── Role-based access
-│   │
-│   └── Docker Networks
-│       ├── dmz_net
-│       ├── internal_net
-│       └── management_net
-│
-│ ## Network Segmentation (Docker) ##
-├── DMZ Network
-│   ├── Reverse Proxy (Nginx / Traefik)
-│   ├── VPN (WireGuard / OpenVPN)
-│   └── Honeypots
-│       ├── Cowrie (SSH/Telnet)
-│       ├── Dionaea (Malware)
-│       └── (opz.) T-Pot stack
-│
-├── Internal Network
-│   ├── OpenMediaVault services
-│   ├── Pi-hole / AdGuard Home
-│   └── Internal-only containers
-│
-├── Management Network
-│   ├── Portainer
-│   ├── Wazuh Dashboard
-│   └── Monitoring tools
-│
-│ ## Security & Monitoring ##
-├── Wazuh SIEM (All-in-One)
-│   ├── Wazuh Manager
-│   ├── Wazuh Indexer (OpenSearch)
-│   └── Wazuh Dashboard
-│
-├── Wazuh Agents
-│   ├── Agent on Raspberry Pi (self-monitoring)
-│   ├── Agent on OMV services
-│   └── Agent on Windows / macOS PC
-│
-├── Integrations
-│   ├── VirusTotal API
-│   │   └── File hash scan on NAS uploads
-│   ├── Docker logs ingestion
-│   └── Syslog / Auth logs
-│
-└── Network Forensics
-    ├── Arkime (Full Packet Capture)
-    │   ├── PCAP storage → NVMe
-    │   └── Session analysis
-    │
-    └── Honeypot Telemetry
-        ├── Attack source IPs
-        ├── Payload analysis
-        └── Correlation with Wazuh alerts
+
 ```
-
-Riassunto TREE compatto:
-
-```bash
-Raspberry Pi 5 (8GB)
+Raspberry Pi 5 (8GB RAM) - Raspberry Pi OS Lite 64-bit (Bookworm)
 │
-├── Boot & Storage (NVMe-first architecture)
+├── Hardware & Boot
+│   ├── Boot diretto da NVMe SSD (Patriot P320 256GB PCIe Gen 3x4)
+│   ├── Bootloader EEPROM aggiornato all'ultima versione stable
+│   ├── MicroSD mantenuta solo per recovery/emergenza
+│   └── Alimentazione: alimentatore ufficiale 27W USB-C (5.1V / 5A)
 │
-├── OpenMediaVault 7
-│   └── NAS services & disk monitoring
+├── Sistema Base: OpenMediaVault 7
+│   ├── Gestione storage (NVMe, filesystem EXT4)
+│   ├── Condivisioni di rete: SMB/CIFS + NFS
+│   ├── Gestione utenti e permessi ACL
+│   ├── Monitoraggio SMART dei dischi
+│   └── Web UI su porta 80 (IP locale)
 │
-├── Docker Platform
-│   ├── Portainer
-│   ├── Segmented Networks (DMZ / Internal / Management)
-│   └── Persistent volumes on NVMe
+├── Container Platform: Docker + Portainer
+│   ├── Docker Engine (docker.io da repo Debian, non CE)
+│   ├── Docker Root Directory su NVMe (/var/lib/docker)
+│   ├── Portainer CE su porta 9443 (HTTPS)
+│   └── Reti Docker segmentate:
+│       ├── bridge (default, per servizi interni)
+│       ├── macvlan (Pi-hole - IP dedicato su LAN)
+│       └── ipvlan_150 (VLAN 150 per isolamento avanzato)
 │
 ├── Security Stack
-│   ├── Wazuh SIEM (All-in-One)
-│   ├── Agents (Pi, OMV, Client PCs)
-│   └── VirusTotal integration
+│   ├── Wazuh SIEM All-in-One (Manager + Indexer + Dashboard)
+│   │   ├── Intrusion Detection System (IDS)
+│   │   ├── File Integrity Monitoring (FIM)
+│   │   ├── Log collection e correlation
+│   │   └── Dashboard HTTPS su porta 443
+│   ├── Wazuh Agents
+│   │   ├── Self-monitoring sul Raspberry Pi
+│   │   ├── Agent su macchine Windows/Linux della rete
+│   │   └── Comunicazione su porte 1514/1515 TCP
+│   └── Regole custom per Cowrie (rule ID 100010-100013)
 │
 ├── Network Protection
-│   ├── VPN (WireGuard)
-│   ├── Pi-hole / AdGuard
-│   └── Reverse Proxy
+│   ├── WireGuard VPN (wg-easy, porta 51820 UDP)
+│   │   ├── Accesso remoto alla LAN da qualsiasi rete
+│   │   ├── DDNS tramite No-IP
+│   │   └── Bypass CGNAT tramite DMZ sul provider FWA
+│   ├── Pi-hole DNS Sinkhole
+│   │   ├── Blocco pubblicita' e tracking a livello DNS
+│   │   ├── IP dedicato 192.168.0.250 (MacVLAN)
+│   │   └── 79.000+ domini in blocklist
+│   └── UFW Firewall
+│       ├── Default deny incoming
+│       ├── Regole ordinate: Gateway first, then LAN block
+│       └── Porte aperte solo per SSH, Dashboard, Wazuh agents
 │
-└── Threat Detection
-    ├── Honeypots (Cowrie, Dionaea, T-Pot)
-    └── Network Forensics (Arkime)
+├── Threat Detection
+│   ├── Cowrie Honeypot (SSH porta 2222, Telnet porta 2223)
+│   │   ├── Emula un server SSH/Telnet vulnerabile
+│   │   ├── Registra credenziali, comandi, sessioni
+│   │   └── Log JSON ingestiti da Wazuh in tempo reale
+│   └── Esposizione Internet
+│       ├── Port forwarding per Honeypot (51820 VPN, 2222 SSH)
+│       └── Ngrok tunnel come fallback per CGNAT
+│
+└── Network Segmentation (Target)
+    ├── DMZ Network → Honeypot, VPN, servizi esposti
+    ├── Internal Network → NAS, Pi-hole, servizi privati
+    └── Management Network → Portainer, Wazuh Dashboard
 ```
-
-
-**Regola fondamentale:**  
-OpenMediaVault rimane il sistema principale.  
-Tutti i servizi aggiuntivi devono essere eseguiti tramite Docker per evitare conflitti.
 
 ---
 
 ## Requisiti hardware
 
-- Raspberry Pi 5
-- MicroSD (minimo 16 GB) con Raspberry Pi OS Lite
-- NVMe SSD con adattatore compatibile USB-C / PCIe (Patriot P320 256GB SSD interno - NVMe PCle Gen 3x4 - M.2 2280)
-- Alimentazione adeguata per Pi e NVMe
-- Accesso via SSH da PC o terminale locale
-- Cavo di rete (Ethernet) consigliato per stabilità
+| Componente | Dettaglio | Note |
+|---|---|---|
+| **Board** | Raspberry Pi 5 (8GB RAM) | I 4GB sono insufficienti per Wazuh Indexer + Dashboard |
+| **Storage primario** | NVMe SSD M.2 2280 PCIe Gen 3x4 | Nel mio caso: Patriot P320 256GB |
+| **Adattatore NVMe** | HAT/adattatore PCIe per RPi5 | Verificare compatibilita' e alimentazione |
+| **Storage secondario** | MicroSD 16GB+ | Solo per recovery; il boot avviene da NVMe |
+| **Alimentazione** | Alimentatore ufficiale RPi5 27W (5.1V/5A) | Con NVMe collegato, un alimentatore sottodimensionato causa instabilita' |
+| **Rete** | Cavo Ethernet Cat5e/Cat6 | Wi-Fi sconsigliato per un server; MacVLAN richiede Ethernet |
+| **Switch** | Switch gestito (managed) | Necessario solo per VLAN tagging 802.1Q |
+| **Router** | Con supporto DDNS e Port Forwarding | Nel mio caso: TP-Link Archer C50 |
+
+---
+
+## Regola fondamentale del progetto
+
+> **OpenMediaVault rimane il sistema operativo principale.** Nessun servizio aggiuntivo viene installato direttamente sull'host. Tutto gira in container Docker. Questo garantisce che un servizio malfunzionante non possa corrompere il NAS, e che ogni componente possa essere aggiornato, fermato o eliminato indipendentemente.
+
+---
+
+## Flusso di lettura consigliato
+
+Per chi parte da zero, l'ordine consigliato e':
+
+1. **First Setup** - Installare l'OS, configurare boot e NVMe
+2. **NAS** - Configurare OpenMediaVault e le condivisioni
+3. **Docker & Portainer** - Installare la piattaforma container
+4. **Secure your RaspberryPi** - Hardening base prima di esporre servizi
+5. **VPN** - Accesso remoto sicuro
+6. **ADS Blocker** - Protezione DNS
+7. **VLAN** - Segmentazione avanzata (opzionale, richiede switch gestito)
+8. **Honeypot** - Deployment della trappola
+9. **SOC Analyst / Wazuh** - SIEM per monitoraggio centralizzato
+10. **Security Assessment** - Test e validazione dell'intero setup
+
+---
+
+## Stack tecnologico
+
+| Layer | Tecnologia | Versione/Note |
+|---|---|---|
+| OS | Raspberry Pi OS Lite 64-bit | Bookworm (Debian 12). Trixie non supportata da OMV e Wazuh |
+| NAS | OpenMediaVault 7 | Installato via script ufficiale OMV-extras |
+| Container Runtime | Docker Engine (docker.io) | Da repository Debian, non Docker CE |
+| Container Management | Portainer CE | Web UI su HTTPS:9443 |
+| SIEM/XDR | Wazuh 4.9.x | All-in-One (Manager + Indexer + Dashboard) su ARM64 |
+| Log Shipper | Filebeat | Trasporta alert dal Manager all'Indexer |
+| VPN | WireGuard (wg-easy v13) | Container Docker, Web UI su porta 51821 |
+| DNS Sinkhole | Pi-hole | Container Docker, rete MacVLAN |
+| Honeypot | Cowrie | Container Docker, SSH porta 2222 |
+| Firewall | UFW (Uncomplicated Firewall) | Frontend per iptables/nftables |
+| Brute Force Protection | Fail2ban | Integrato con Wazuh per alerting |
+
+---
+
+## Nota sulla sicurezza
+
+Questo progetto espone deliberatamente un honeypot su Internet. Le configurazioni documentate includono misure di isolamento (firewall, segmentazione di rete, container sandbox), ma **un sistema esposto a Internet richiede manutenzione costante**: aggiornamenti, monitoraggio dei log, revisione delle regole firewall.
+
+Non replicare questa configurazione senza comprendere i rischi. Un honeypot mal configurato e' una porta aperta sulla tua rete domestica.
+
+---
+
+## Licenza
+
+Questo repository e' pubblico a scopo educativo. I comandi e le configurazioni documentati sono specifici per il mio ambiente di rete e potrebbero richiedere adattamenti per funzionare correttamente nel vostro.

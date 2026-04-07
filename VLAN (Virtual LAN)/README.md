@@ -1,144 +1,219 @@
-# IPVLAN e VLAN Tagging (802.1Q)
+# VLAN e IPVLAN — Segmentazione di Rete Avanzata con Docker
 
-Questa guida documenta la configurazione di un container Docker su un Raspberry Pi, utilizzando il driver di rete ipvlan in modalità L2 su una VLAN specifica (802.1Q)
-
-Questo setup è ideale per ambienti di rete avanzati ("Enterprise" o Lab domestici con switch gestiti) dove si desidera isolare il traffico DNS su una VLAN dedicata, mantenendo il container accessibile direttamente sulla rete fisica senza NAT
+Questa guida documenta la configurazione di container Docker su un Raspberry Pi utilizzando il driver di rete **IPVLAN** in modalita' L2 su una **VLAN dedicata (802.1Q)**. Include la teoria necessaria per capire cosa si sta facendo e i problemi che ho incontrato nella pratica.
 
 ---
 
-## Teoria
+## Teoria: Perche' segmentare la rete
 
-1. Perché usare `ipvlan` invece di `bridge`?
-La modalità standard di Docker (`bridge`) utilizza il NAT. Questo nasconde l'IP reale del client che fa la richiesta DNS, facendo sembrare che tutto il traffico provenga dal Gateway di Docker
-Con ipvlan (L2 mode):
-- Il container ottiene un IP reale sulla rete fisica (o VLAN)
-- Pi-hole può vedere il vero IP del client (fondamentale per statistiche e log)
-- Le prestazioni sono leggermente superiori in quanto si evita il bridge software
+In un home lab di sicurezza, tutti i servizi (NAS, Honeypot, Pi-hole, SIEM) girano sullo stesso dispositivo fisico. Senza segmentazione di rete, un attaccante che compromette il container Honeypot potrebbe potenzialmente raggiungere il NAS e i dati personali.
 
-2. VLAN Tagging (802.1Q)
-In questo scenario, non colleghiamo il container alla rete "flat" (non taggata), ma a una specifica VLAN (ID 150)
-Affinché funzioni:
-- L'interfaccia fisica del Raspberry Pi deve creare una sotto-interfaccia virtuale che "tagga" i pacchetti in uscita
-- Requisito Hardware: La porta dello switch a cui è collegato il Raspberry Pi deve essere configurata come TRUNK (o deve avere la VLAN 150 come Tagged). Se lo switch è in modalità Access (solo traffico non taggato), questa configurazione non funzionerà
+La segmentazione di rete crea **confini logici** tra i servizi, anche se fisicamente condividono lo stesso Raspberry Pi e lo stesso cavo Ethernet.
+
+---
+
+## Modalita' di rete Docker a confronto
+
+Docker offre diversi driver di rete. La scelta del driver ha impatto diretto su isolamento, visibilita' e prestazioni.
+
+### Bridge (default)
+
+```
+[Container] ──── [Docker Bridge (172.17.0.1)] ──── NAT ──── [Rete fisica]
+```
+
+- Ogni container riceve un IP privato nella subnet interna di Docker (172.17.0.0/16)
+- Il traffico verso l'esterno passa attraverso NAT (Network Address Translation)
+- **Problema:** Tutti i pacchetti in uscita hanno come IP sorgente l'indirizzo del Raspberry Pi. Pi-hole non puo' distinguere quale client ha fatto la query DNS — vede solo l'IP del gateway Docker
+- **Problema:** Per esporre porte, serve `-p 80:80` (port mapping) — conflitto se l'host usa gia' quella porta
+
+### MacVLAN
+
+```
+[Container (MAC: aa:bb:cc:dd:ee:01, IP: 192.168.0.250)] ──── [Rete fisica]
+[Host (MAC: 2c:cf:67:b2:47:ea, IP: 192.168.0.102)]      ──── [Rete fisica]
+```
+
+- Il container ottiene un **MAC address virtuale** e un IP sulla rete fisica
+- Appare come un dispositivo fisico separato sulla LAN
+- **Vantaggio:** IP dedicato, nessun NAT, nessun port mapping
+- **Limitazione critica:** Per design del kernel Linux, l'host **non puo' comunicare** con i container MacVLAN sulla stessa interfaccia. Il traffico tra host e container viene droppato a livello kernel (misura anti-spoofing)
+
+### IPVLAN (L2 mode)
+
+```
+[Container (MAC: 2c:cf:67:b2:47:ea, IP: 192.168.150.69)] ──── [Rete fisica / VLAN]
+[Host (MAC: 2c:cf:67:b2:47:ea, IP: 192.168.0.102)]       ──── [Rete fisica]
+```
+
+- Il container **condivide il MAC address** dell'host ma ha un IP diverso
+- Opera a Layer 2 — i frame Ethernet vengono inviati direttamente sulla rete fisica
+- **Vantaggio:** Compatibile con ambienti dove le policy di sicurezza limitano il numero di MAC per porta (802.1X, port security su switch managed)
+- **Stessa limitazione** di MacVLAN: host e container non comunicano direttamente
+
+| Caratteristica | Bridge | MacVLAN | IPVLAN L2 |
+|---|---|---|---|
+| NAT | Si | No | No |
+| IP reale su LAN | No | Si | Si |
+| MAC address dedicato | No | Si (virtuale) | No (condiviso con host) |
+| Host ↔ Container | Si | **No** | **No** |
+| Port mapping necessario | Si | No | No |
+| Visibilita' IP client | Solo IP gateway | IP reale del client | IP reale del client |
+| Compatibilita' port-security | N/A | Puo' causare problemi | Compatibile |
+
+---
+
+## Teoria: VLAN Tagging (IEEE 802.1Q)
+
+Una **VLAN (Virtual LAN)** e' una rete logica separata che condivide la stessa infrastruttura fisica. Il protocollo **IEEE 802.1Q** aggiunge un **tag** di 4 byte nell'header del frame Ethernet che identifica la VLAN di appartenenza:
+
+```
+[MAC dst] [MAC src] [802.1Q Tag: VLAN ID 150] [EtherType] [Payload] [FCS]
+                     └── 4 byte inseriti ──┘
+```
+
+Il tag contiene:
+
+- **TPID** (Tag Protocol Identifier): `0x8100` — identifica il frame come taggato
+- **PCP** (Priority Code Point): 3 bit per QoS (priorita' del traffico)
+- **DEI** (Drop Eligible Indicator): 1 bit
+- **VID** (VLAN Identifier): 12 bit → supporta fino a 4094 VLAN (0 e 4095 riservati)
+
+### Porte dello switch: Access vs Trunk
+
+| Tipo porta | Comportamento | Uso tipico |
+|---|---|---|
+| **Access** | Trasporta traffico di una sola VLAN, senza tag | PC, stampanti, dispositivi finali |
+| **Trunk** | Trasporta traffico di piu' VLAN, con tag 802.1Q | Connessioni tra switch, server multi-VLAN |
+
+**Per il nostro setup:** La porta dello switch a cui e' collegato il Raspberry Pi deve essere configurata come **Trunk** (o con la VLAN 150 come "tagged"). Se lo switch e' **unmanaged** (non gestito), questa configurazione **non funzionera'** perche' lo switch droppera' i frame taggati.
 
 ---
 
 ## Configurazione Passo-Passo
 
-### Preparazione dell'Interfaccia Host (Linux)
+### Step 1: Identificare l'interfaccia di rete
 
-Prima di iniziare, identifichiamo il nome dell'interfaccia fisica principale (nel mio caso è end0):
 ```bash
 ip a
+```
 
-...
+Sul Raspberry Pi 5 con Bookworm, l'interfaccia Ethernet si chiama tipicamente `end0` (non `eth0` come nei modelli precedenti):
+
+```
 2: end0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
-link/ether 2c:cf:67:b2:47:ea brd ff:ff:ff:ff:ff:ff
-altname enx2ccf67b247ea
-inet 192.168.0.102/24 metric 100 brd 192.168.0.255 scope global end0
-    valid_lft forever preferred_lft forever
-inet6 fe80::2ecf:67ff:feb2:47ea/64 scope link proto kernel_ll
-    valid_lft forever preferred_lft forever
-...
+    link/ether 2c:cf:67:b2:47:ea brd ff:ff:ff:ff:ff:ff
+    altname enx2ccf67b247ea
+    inet 192.168.0.102/24 metric 100 brd 192.168.0.255 scope global end0
+        valid_lft forever preferred_lft forever
 ```
 
-Prima di configurare Docker, il sistema operativo (Linux/Raspberry Pi OS) deve essere consapevole dell'esistenza della VLAN. Creiamo una sotto-interfaccia virtuale legata all'interfaccia fisica
+### Step 2: Creare la sotto-interfaccia VLAN
+
+Prima che Docker possa usare la VLAN, il kernel Linux deve sapere che esiste. Creiamo una sotto-interfaccia virtuale che "tagga" i pacchetti con VLAN ID 150:
 
 ```bash
-# Sostituire "eth0" con il nome reale della tua interfaccia (controlla con "ip a")
+# Crea l'interfaccia virtuale per VLAN 150
+sudo ip link add link end0 name end0.150 type vlan id 150
 
-# 1. Creare l'interfaccia virtuale per la VLAN 150
-sudo ip link add link eth0 name eth0.150 type vlan id 150
-
-# 2. Attivare l'interfaccia
-sudo ip link set eth0.150 up
+# Attiva l'interfaccia
+sudo ip link set end0.150 up
 ```
 
-Verifichiamo che la nuova interfaccia end0.150 sia attiva:
+**Cosa succede a livello kernel:**
+
+- `ip link add`: crea un device di rete virtuale di tipo `vlan`
+- `link end0`: la sotto-interfaccia e' "figlia" dell'interfaccia fisica `end0`
+- `type vlan id 150`: ogni frame in uscita da `end0.150` viene automaticamente taggato con VLAN ID 150. Ogni frame in ingresso su `end0` con tag 150 viene consegnato a `end0.150`
+
+### Verifica
 
 ```bash
 ip a
-
-...
-9: end0.150@end0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
-link/ether 2c:cf:67:b2:47:ea brd ff:ff:ff:ff:ff:ff
-inet6 fe80::2ecf:67ff:feb2:47ea/64 scope link proto kernel_ll
-    valid_lft forever preferred_lft forever
 ```
 
----
+```
+9: end0.150@end0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether 2c:cf:67:b2:47:ea brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::2ecf:67ff:feb2:47ea/64 scope link proto kernel_ll
+        valid_lft forever preferred_lft forever
+```
 
-### Creazione della Rete Docker (IPVLAN)
+L'interfaccia `end0.150@end0` e' attiva. Nota che non ha un indirizzo IPv4 — non ne ha bisogno, sara' Docker a gestire gli IP dei container.
 
-Ora istruiamo Docker a creare una rete che si appoggia a quella specifica sotto-interfaccia VLAN appena creata
+> **Persistenza:** Questa configurazione si perde al reboot. Per renderla permanente, aggiungere al file `/etc/network/interfaces.d/vlan150`:
+> ```
+> auto end0.150
+> iface end0.150 inet manual
+>     vlan-raw-device end0
+> ```
+
+### Step 3: Creare la rete Docker IPVLAN
 
 ```bash
 docker network create -d ipvlan \
     --subnet=192.168.150.0/24 \
     --gateway=192.168.150.1 \
-    -o parent=eth0.150 \
+    -o parent=end0.150 \
     -o ipvlan_mode=l2 \
     ipvlan_150
 ```
 
+Spiegazione di ogni parametro:
+
+| Parametro | Significato |
+|---|---|
+| `-d ipvlan` | Driver di rete: IPVLAN |
+| `--subnet=192.168.150.0/24` | La sottorete della VLAN 150 |
+| `--gateway=192.168.150.1` | Il gateway della VLAN (deve esistere sullo switch/router) |
+| `-o parent=end0.150` | **Punto critico:** collega la rete Docker alla sotto-interfaccia VLAN, NON all'interfaccia fisica |
+| `-o ipvlan_mode=l2` | Modalita' Layer 2: condivide il MAC dell'host, opera come bridge diretto |
+
+![Portainer — Lista delle reti Docker mostra la rete ipvlan_150 con subnet 192.168.150.0/24](img/portainer-network-list.jpg)
+
+### Step 4: Test di connettivita'
+
+Avviamo un container temporaneo per verificare che l'IP venga assegnato correttamente:
+
 ```bash
--d ipvlan: Specifica il driver
-
---subnet: La sottorete definita per la VLAN 150
-
--o parent=eth0.150: Punto cruciale, collega la rete Docker all'interfaccia VLAN taggata, non a quella fisica grezza
-
--o ipvlan_mode=l2: Modalità Layer 2 (condivide il MAC address del padre ma ha IP diverso)
+docker run -it --rm \
+    --net ipvlan_150 \
+    --ip 192.168.150.69 \
+    --name test-vlan \
+    alpine /bin/sh
 ```
 
-![](../img/19.jpg)
-
----
-
-### Test del corretto funzionamento
-
-Avviamo un container temporaneo (Alpine Linux) per verificare che l'IP venga assegnato correttamente e che la rete sia raggiungibile
+Dentro il container:
 
 ```bash
-docker run \
--it --net ipvlan_10 \
---ip 192.168.150.69 \
---name test1 \
--v alpine:/data alpine /bin/sh
+# Verifica IP assegnato
+ip a
 ```
 
-Una volta dentro la shell del container, controlliamo l'indirizzo IP assegnato:
-
-```bash
-/ # ip a                                                                                                                
+```
 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
-link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-inet 127.0.0.1/8 scope host lo
-    valid_lft forever preferred_lft forever
-inet6 ::1/128 scope host
-    valid_lft forever preferred_lft forever                      
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+        valid_lft forever preferred_lft forever
 
 10: eth0@if9: <BROADCAST,MULTICAST,UP,LOWER_UP,M-DOWN> mtu 1500 qdisc noqueue state UNKNOWN
-link/ether 2c:cf:67:b2:47:ea brd ff:ff:ff:ff:ff:ff
-inet 192.168.150.69/24 brd 192.168.150.255 scope global eth0
-    valid_lft forever preferred_lft forever 
+    link/ether 2c:cf:67:b2:47:ea brd ff:ff:ff:ff:ff:ff
+    inet 192.168.150.69/24 brd 192.168.150.255 scope global eth0
+        valid_lft forever preferred_lft forever
 ```
 
-Proviamo infine a pingare il Gateway per confermare la connettività:
+Il container ha l'IP `192.168.150.69` sulla VLAN 150 e condivide il MAC address dell'host (`2c:cf:67:b2:47:ea`).
 
 ```bash
+# Test connettivita' verso il gateway
 ping 192.168.150.1
 ```
 
-![](../img/20.jpg)
+![Test di connettivita' dal container Alpine sulla VLAN 150](img/ipvlan-ping-test.jpg)
 
----
+Se il ping funziona, la VLAN e' configurata correttamente end-to-end (Raspberry Pi → switch → router).
 
-### Deploy del Container (Esempio con Pi-hole)
-
-Se il test è positivo, avviamo il container definitivo assegnandogli un IP statico all'interno della VLAN 150
-
-Comando Docker Run:
+### Step 5: Deploy di un container sulla VLAN (Esempio: Pi-hole)
 
 ```bash
 docker run -d \
@@ -153,65 +228,95 @@ docker run -d \
     pihole/pihole:latest
 ```
 
-Oppure possiamo creare uno stack dalla gui del brouser
+Oppure tramite Docker Compose (da Portainer → Stacks → Add Stack):
 
-```bash
+```yaml
 services:
   pihole:
     container_name: pihole
     image: pihole/pihole:latest
     hostname: pihole
-    ports:
-      - "53:53/tcp"
-      - "53:53/udp"
-      - "67:67/udp"
-      - "80:80/tcp"
-      - "443:443/tcp"
+    networks:
+      ipvlan_150:
+        ipv4_address: 192.168.150.69
     environment:
-      TZ: 'Europe/Amsterdam'
+      TZ: 'Europe/Rome'
       FTLCONF_dns_listeningMode: all
     volumes:
-    - '/home/vikash/pihole:/etc/pihole'
+      - '/home/pi/pihole/etc-pihole:/etc/pihole'
+      - '/home/pi/pihole/etc-dnsmasq:/etc/dnsmasq.d'
     cap_add:
-    - NET_ADMIN
+      - NET_ADMIN
     restart: unless-stopped
+
+networks:
+  ipvlan_150:
+    external: true
 ```
+
+> **Nota:** La rete `ipvlan_150` e' dichiarata come `external: true` perche' l'abbiamo gia' creata manualmente con `docker network create`. Docker Compose non deve tentare di ricrearla.
 
 ---
 
-### Migrazione del Container sulla Rete VLAN
+## Migrazione di un container esistente dalla rete Bridge alla VLAN
 
-Attualmente, il container Pi-hole è in esecuzione sulla rete di default bridge. Questo significa che condivide l'indirizzo IP dell'host tramite NAT, invece di trovarsi isolato sulla VLAN desiderata
+Se hai gia' un container Pi-hole in esecuzione sulla rete bridge e vuoi spostarlo su IPVLAN, puoi farlo da Portainer:
 
-Per spostare il container sulla rete ipvlan_150 e assegnargli un IP dedicato, seguire questi passaggi nell'interfaccia di Portainer:
-
-- Dalla lista dei container, cliccare sul nome del container interessato (pihole)
-- Cliccare sul pulsante Duplicate/Edit situato nella barra in alto a destra
-- Scorrere verso il basso fino alla sezione Network
-- Alla voce "Network", rimuovere bridge e selezionare ipvlan_150
-- Importante: Cancellare il contenuto del campo MAC Address
-    - Nota: è fondamentale rimuovere il vecchio MAC address per permettere a Docker di generarne uno nuovo valido per la nuova rete, evitando conflitti ARP
-- Nel campo IPv4 Address, inserire l'IP statico desiderato per il container (es. 192.168.150.8)
-- Cliccare su "Deploy the container" e confermare con Replace quando richiesto
-
-Extra: controlliamo con comando `ping` se tutto funziona correttamente, ossia ne verifichiamo la connettività
+1. Dalla lista container, clicca sul nome del container (`pihole`)
+2. Clicca **Duplicate/Edit** nella barra in alto
+3. Nella sezione **Network**:
+   - Rimuovi `bridge`
+   - Seleziona `ipvlan_150`
+   - **Importante:** Cancella il campo **MAC Address** — Docker deve generarne uno nuovo per la nuova rete. Lasciare il vecchio MAC causa conflitti ARP
+   - Nel campo **IPv4 Address**, inserisci l'IP statico (es. `192.168.150.69`)
+4. Clicca **Deploy the container** e conferma con **Replace**
 
 ---
 
 ## Limitazioni e Troubleshooting
 
-1. Isolamento Host-Container
+### 1. L'host non puo' comunicare con i container IPVLAN/MacVLAN
 
-Per design di sicurezza del kernel Linux, quando si usa macvlan o ipvlan: L'Host (il Raspberry Pi) NON può comunicare con i container sulla sua stessa interfaccia
+Questo e' **by design**. Il kernel Linux impedisce la comunicazione tra l'interfaccia padre e le sotto-interfacce IPVLAN/MacVLAN per motivi di sicurezza (prevenzione ARP spoofing interno).
 
-Il Raspberry Pi (es. 192.168.0.10) non potrà fare il ping a Pi-hole (192.168.150.69)
+**Conseguenza pratica:** Il Raspberry Pi (192.168.0.102) non potra' fare ping a Pi-hole (192.168.150.69). Tutti gli **altri** dispositivi sulla rete (PC, smartphone, router) potranno raggiungerlo normalmente.
 
-Tutti gli altri dispositivi della rete (PC, Smartphone, Router) potranno raggiungerlo perfettamente
+**Workaround (se necessario):** Creare un'interfaccia MacVLAN sull'host collegata alla stessa rete:
 
-2. Configurazione Switch
+```bash
+sudo ip link add mvl0 link end0.150 type macvlan mode bridge
+sudo ip addr add 192.168.150.100/24 dev mvl0
+sudo ip link set mvl0 up
+```
 
-Se il container non risponde al ping:
+### 2. Il container non risponde al ping da altri dispositivi
 
-Verificare che la porta dello switch sia configurata per accettare traffico Tagged VLAN 150
+Checklist di diagnostica:
 
-Se si usa uno switch "stupido" (unmanaged), questa configurazione fallirà perché lo switch dropperà i pacchetti taggati o non saprà dove mandarli
+| Verifica | Comando | Cosa cercare |
+|---|---|---|
+| L'interfaccia VLAN esiste? | `ip a \| grep end0.150` | Deve mostrare stato UP |
+| La rete Docker esiste? | `docker network ls` | `ipvlan_150` deve essere presente |
+| Il container e' sulla rete giusta? | `docker inspect pihole \| grep NetworkMode` | Deve mostrare `ipvlan_150` |
+| Lo switch accetta il tag VLAN? | Verificare configurazione switch | La porta deve essere Trunk o Tagged VLAN 150 |
+
+### 3. Switch unmanaged (non gestito)
+
+Se il tuo switch e' un modello consumer senza interfaccia di gestione, **non supporta VLAN tagging**. I frame con tag 802.1Q verranno droppati silenziosamente o, in alcuni casi, passati ma ignorati dal dispositivo di destinazione.
+
+**Soluzione:** Usare IPVLAN **senza** VLAN tagging (direttamente sull'interfaccia fisica `end0`):
+
+```bash
+docker network create -d ipvlan \
+    --subnet=192.168.0.0/24 \
+    --gateway=192.168.0.1 \
+    -o parent=end0 \
+    -o ipvlan_mode=l2 \
+    ipvlan_flat
+```
+
+Perdi l'isolamento VLAN, ma mantieni i vantaggi di IPVLAN (IP dedicato, no NAT, visibilita' IP reale dei client).
+
+---
+
+Prossimo step: [VPN (Virtual Private Network)](../VPN%20(Virtual%20Private%20Network)/) — accesso remoto sicuro alla LAN.

