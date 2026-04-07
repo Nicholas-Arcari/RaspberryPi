@@ -1,4 +1,4 @@
-# Hardening del Raspberry Pi — Guida alla Messa in Sicurezza
+# Hardening del Raspberry Pi - Guida alla Messa in Sicurezza
 
 Un Raspberry Pi esposto su rete (anche solo LAN) con servizi attivi e' un bersaglio. Questa guida copre le misure di sicurezza fondamentali che ho applicato al mio sistema, spiegando non solo il "come" ma il "perche'" di ogni configurazione.
 
@@ -53,13 +53,13 @@ HostbasedAuthentication no
 PermitEmptyPasswords no
 
 # Disabilita X11 forwarding se non necessario
-# Riduce la superficie d'attacco — X11 ha una storia di vulnerabilita'
+# Riduce la superficie d'attacco - X11 ha una storia di vulnerabilita'
 X11Forwarding no
 
-# Disabilita TCP forwarding — previene l'uso del Pi come proxy
+# Disabilita TCP forwarding - previene l'uso del Pi come proxy
 AllowTcpForwarding no
 
-# Disabilita compressione — previene attacchi di tipo CRIME/BREACH
+# Disabilita compressione - previene attacchi di tipo CRIME/BREACH
 Compression no
 
 # Limita l'accesso SSH solo a utenti nei gruppi specificati
@@ -138,15 +138,15 @@ Ed25519 usa la curva ellittica Curve25519 e fornisce sicurezza equivalente a RSA
 
 ---
 
-## 2. Fail2ban — Protezione Brute Force
+## 2. Fail2ban - Protezione Brute Force
 
 **Fail2ban** monitora i log di sistema (es. `/var/log/auth.log`) alla ricerca di pattern di attacco (tentativi di login falliti) e banna automaticamente gli IP offensivi tramite regole firewall.
 
 ### Come funziona internamente
 
 1. **Filter**: una regex che identifica un tentativo fallito nei log (es. `Failed password for .* from <HOST>`)
-2. **Jail**: la policy — quanti tentativi (`maxretry`), in quanto tempo (`findtime`), per quanto tempo bannare (`bantime`)
-3. **Action**: cosa fare quando il threshold viene superato — di default, aggiunge una regola `iptables -A INPUT -s <IP> -j REJECT`
+2. **Jail**: la policy - quanti tentativi (`maxretry`), in quanto tempo (`findtime`), per quanto tempo bannare (`bantime`)
+3. **Action**: cosa fare quando il threshold viene superato - di default, aggiunge una regola `iptables -A INPUT -s <IP> -j REJECT`
 
 ### Installazione e abilitazione
 
@@ -194,7 +194,7 @@ findtime = 600     # Finestra di 10 minuti
 bantime = 3600     # Ban per 1 ora
 ```
 
-> **Integrazione con Wazuh:** Fail2ban e Wazuh non sono in conflitto — si complementano. Fail2ban agisce (banna l'IP), Wazuh osserva e alerta (ti notifica dell'attacco). Wazuh legge i log di Fail2ban e genera alert quando un IP viene bannato, dandoti visibilita' centralizzata.
+> **Integrazione con Wazuh:** Fail2ban e Wazuh non sono in conflitto - si complementano. Fail2ban agisce (banna l'IP), Wazuh osserva e alerta (ti notifica dell'attacco). Wazuh legge i log di Fail2ban e genera alert quando un IP viene bannato, dandoti visibilita' centralizzata.
 
 ---
 
@@ -216,7 +216,7 @@ UFW genera qualcosa come:
 -A ufw-user-input -p tcp --dport 22 -j ACCEPT
 ```
 
-Le regole vengono applicate nella chain `INPUT` di netfilter (il framework di packet filtering del kernel Linux). Ogni pacchetto in ingresso attraversa le regole nell'ordine in cui sono state definite — la **prima regola che fa match** decide il destino del pacchetto.
+Le regole vengono applicate nella chain `INPUT` di netfilter (il framework di packet filtering del kernel Linux). Ogni pacchetto in ingresso attraversa le regole nell'ordine in cui sono state definite - la **prima regola che fa match** decide il destino del pacchetto.
 
 ### Configurazione base
 
@@ -269,7 +269,7 @@ sudo ufw allow from 192.168.0.0/24 to any port 9443
 sudo ufw allow from 192.168.0.0/24 to any port 1514 proto tcp
 sudo ufw allow from 192.168.0.0/24 to any port 1515 proto tcp
 
-# Honeypot (aperto a tutti — deve essere raggiungibile dagli attaccanti)
+# Honeypot (aperto a tutti - deve essere raggiungibile dagli attaccanti)
 sudo ufw allow 2222/tcp
 ```
 
@@ -286,7 +286,7 @@ sudo apt install unattended-upgrades -y
 sudo dpkg-reconfigure unattended-upgrades
 ```
 
-Il comando `dpkg-reconfigure` mostra una schermata interattiva — selezionare **Yes** per abilitare gli aggiornamenti automatici.
+Il comando `dpkg-reconfigure` mostra una schermata interattiva - selezionare **Yes** per abilitare gli aggiornamenti automatici.
 
 **Cosa viene aggiornato automaticamente:**
 
@@ -328,7 +328,7 @@ wazuh-syscheckd: INFO: Monitoring directory: '/etc'
 wazuh-syscheckd: INFO: Monitoring directory: '/usr/bin'
 ```
 
-### Test pratico — generare un alert FIM
+### Test pratico - generare un alert FIM
 
 ```bash
 # Crea un file in una directory monitorata
@@ -376,8 +376,8 @@ Wazuh iniziera' a generare alert per:
 - Tentativi SSH falliti (rule.id: 5710, 5712)
 - Ban di Fail2ban (rule.id: 87101-87105)
 - Modifiche a file monitorati (rule.id: 550-554)
-- Escalation di privilegi (`sudo` usage — rule.id: 5401-5405)
+- Escalation di privilegi (`sudo` usage - rule.id: 5401-5405)
 
 ---
 
-Prossimo step: [VLAN (Virtual LAN)](../VLAN%20(Virtual%20LAN)/) — segmentazione di rete avanzata, oppure [VPN](../VPN%20(Virtual%20Private%20Network)/) — accesso remoto sicuro.
+Prossimo step: [VLAN (Virtual LAN)](../VLAN%20(Virtual%20LAN)/) - segmentazione di rete avanzata, oppure [VPN](../VPN%20(Virtual%20Private%20Network)/) - accesso remoto sicuro.
