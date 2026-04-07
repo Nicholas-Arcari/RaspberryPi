@@ -1,6 +1,6 @@
-# SOC Analyst — Security Operations Center
+# SOC Analyst - Security Operations Center
 
-Questa sezione raccoglie gli strumenti e le configurazioni relativi al monitoraggio centralizzato della sicurezza — il cuore di un SOC (Security Operations Center), anche se in scala "home lab".
+Questa sezione raccoglie gli strumenti e le configurazioni relativi al monitoraggio centralizzato della sicurezza - il cuore di un SOC (Security Operations Center), anche se in scala "home lab".
 
 ---
 
@@ -37,14 +37,14 @@ Nel nostro home lab, ricreiamo la componente tecnologica usando **Wazuh** come S
 
 La piattaforma principale. Installazione e configurazione dettagliata nella sotto-sezione dedicata:
 
-**[Wazuh — Installazione e Configurazione](./Wazuh/)**
+**[Wazuh - Installazione e Configurazione](./Wazuh/)**
 
 ---
 
 ## Workflow tipico di analisi (per il nostro lab)
 
 1. **Alert** appare sulla dashboard Wazuh (es. "Cowrie: INTRUSIONE RIUSCITA")
-2. **Triage**: controllare l'IP sorgente — e' un bot noto? E' dalla rete locale o da Internet?
+2. **Triage**: controllare l'IP sorgente - e' un bot noto? E' dalla rete locale o da Internet?
 3. **Investigazione**: nella sezione Threat Hunting, filtrare per quell'IP e vedere tutti gli eventi correlati
 4. **Correlazione**: l'IP ha anche tentato di accedere a SSH reale (porta 22)? Ha triggerato regole firewall?
 5. **Risposta**: se l'IP e' sospetto, bloccare manualmente su UFW (`sudo ufw deny from <IP>`) o verificare che Fail2ban l'abbia gia' bannato
