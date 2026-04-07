@@ -1,4 +1,4 @@
-# Pi-hole — DNS Sinkhole per il blocco di pubblicita' e tracking
+# Pi-hole - DNS Sinkhole per il blocco di pubblicita' e tracking
 
 Questa guida documenta l'installazione di Pi-hole su Docker con rete MacVLAN, la configurazione del router per usarlo come DNS primario, e i problemi reali che ho incontrato (spoiler: il conflitto della porta 80 con OpenMediaVault).
 
@@ -29,7 +29,7 @@ Dispositivo → Pi-hole (192.168.0.250) → Il dominio e' in blocklist?
                                           └── NO → Inoltra al DNS upstream (8.8.8.8, 1.1.1.1)
 ```
 
-Quando un'app o una pagina web tenta di caricare una risorsa da un dominio di advertising o tracking (es. `ads.doubleclick.net`, `pixel.facebook.com`), Pi-hole risponde con un indirizzo nullo. La risorsa non viene mai scaricata — la pubblicita' semplicemente non appare.
+Quando un'app o una pagina web tenta di caricare una risorsa da un dominio di advertising o tracking (es. `ads.doubleclick.net`, `pixel.facebook.com`), Pi-hole risponde con un indirizzo nullo. La risorsa non viene mai scaricata - la pubblicita' semplicemente non appare.
 
 **Vantaggi rispetto ai browser ad-blocker (uBlock Origin, AdBlock):**
 
@@ -63,11 +63,11 @@ Questo installa Pi-hole "bare metal" (direttamente sul sistema operativo), causa
 - Installazione di una seconda istanza di `lighttpd` che interferisce con nginx di OMV
 - Doppia gestione DNS che crea confusione
 
-Se per errore l'avessi fatto, ecco cosa vedresti — queste sono schermate dell'installer bare metal che **non** va usato nel nostro setup:
+Se per errore l'avessi fatto, ecco cosa vedresti - queste sono schermate dell'installer bare metal che **non** va usato nel nostro setup:
 
-![Installer bare metal di Pi-hole — selezione DNS upstream. Questa modalita' di installazione NON va usata con Docker](img/pihole-baremetal-dns-warning.jpg)
+![Installer bare metal di Pi-hole - selezione DNS upstream. Questa modalita' di installazione NON va usata con Docker](img/pihole-baremetal-dns-warning.jpg)
 
-![Installer bare metal completato — NON applicabile al nostro setup Docker](img/pihole-baremetal-install-warning.jpg)
+![Installer bare metal completato - NON applicabile al nostro setup Docker](img/pihole-baremetal-install-warning.jpg)
 
 ### La soluzione: Docker + MacVLAN
 
@@ -138,7 +138,7 @@ networks:
   pihole_net:
     driver: macvlan
     driver_opts:
-      parent: end0  # Verificare con 'ip link' — su RPi5 Bookworm e' end0, su RPi4 e' eth0
+      parent: end0  # Verificare con 'ip link' - su RPi5 Bookworm e' end0, su RPi4 e' eth0
     ipam:
       config:
         - subnet: 192.168.0.0/24
@@ -162,7 +162,7 @@ docker compose up -d
 docker exec -it pihole pihole setpassword tua_password_sicura
 ```
 
-![Dashboard Pi-hole appena avviata — 79.811 domini in blocklist, 0 query (appena installato)](img/pihole-dashboard.jpg)
+![Dashboard Pi-hole appena avviata - 79.811 domini in blocklist, 0 query (appena installato)](img/pihole-dashboard.jpg)
 
 ---
 
@@ -176,10 +176,10 @@ Sul router (TP-Link Archer C50 → DHCP → DHCP Settings):
 
 - **Primary DNS**: `192.168.0.250` (IP del Pi-hole)
 - **Secondary DNS**: due opzioni:
-  - **Hardcore (blocco al 100%)**: lasciare vuoto o `0.0.0.0`. Se Pi-hole va giu', niente Internet — ma nessuna query bypassa il blocco
+  - **Hardcore (blocco al 100%)**: lasciare vuoto o `0.0.0.0`. Se Pi-hole va giu', niente Internet - ma nessuna query bypassa il blocco
   - **Failover**: `1.1.1.1` (Cloudflare) o `8.8.8.8` (Google). Se Pi-hole va giu', Internet continua a funzionare, ma alcune query potrebbero bypassare il filtro anche quando Pi-hole e' attivo (il SO potrebbe preferire il DNS secondario per velocita')
 
-![Configurazione DHCP del router — Pi-hole come DNS primario](img/router-dhcp-dns-settings.jpg)
+![Configurazione DHCP del router - Pi-hole come DNS primario](img/router-dhcp-dns-settings.jpg)
 
 ### Perche' i dispositivi non aggiornano subito il DNS
 
@@ -198,9 +198,9 @@ Se vedi ancora pubblicita' dopo la configurazione, controlla:
 
 **Chrome/Edge:** Impostazioni → Privacy e sicurezza → Sicurezza → **Disattiva "Usa DNS sicuro"**
 
-![Chrome — Disabilitazione del DNS sicuro (DoH) per permettere a Pi-hole di funzionare](img/chrome-disable-doh.jpg)
+![Chrome - Disabilitazione del DNS sicuro (DoH) per permettere a Pi-hole di funzionare](img/chrome-disable-doh.jpg)
 
-![Pi-hole in azione — blocco attivo delle query di advertising e tracking](img/pihole-blocking-active.jpg)
+![Pi-hole in azione - blocco attivo delle query di advertising e tracking](img/pihole-blocking-active.jpg)
 
 ---
 
@@ -218,7 +218,7 @@ Accedere a `http://192.168.0.250/admin` e verificare:
 
 La sezione **Query Log** mostra ogni singola query DNS in tempo reale:
 
-![Pi-hole Query Log — dettaglio delle query DNS con client, dominio, tipo e stato (Allow/Deny)](img/pihole-query-log.jpg)
+![Pi-hole Query Log - dettaglio delle query DNS con client, dominio, tipo e stato (Allow/Deny)](img/pihole-query-log.jpg)
 
 Da qui puoi vedere:
 - Quale dispositivo ha fatto la query (colonna **Client**)
@@ -230,7 +230,7 @@ Da qui puoi vedere:
 
 Un test pratico: visita un sito con molte pubblicita' (es. speedtest.net) e osserva la differenza:
 
-![Speedtest.net — le pubblicita' laterali sono visibili perche' il Pi-hole non era ancora configurato come DNS](img/speedtest-ads-visible.jpg)
+![Speedtest.net - le pubblicita' laterali sono visibili perche' il Pi-hole non era ancora configurato come DNS](img/speedtest-ads-visible.jpg)
 
 Dopo aver configurato Pi-hole come DNS, le pubblicita' scompariranno dai siti web. Le aree che ospitavano ads appariranno come spazi vuoti o non verranno caricate affatto.
 
@@ -243,10 +243,10 @@ Dopo aver configurato Pi-hole come DNS, le pubblicita' scompariranno dai siti we
 I comandi Pi-hole (`pihole -t`, `pihole status`, ecc.) sono installati **dentro** il container, non sull'host. Dal terminale del Raspberry:
 
 ```bash
-# Corretto — esegui il comando dentro il container
+# Corretto - esegui il comando dentro il container
 docker exec -it pihole pihole status
 
-# Errato — il binario non esiste sull'host
+# Errato - il binario non esiste sull'host
 pihole status  # Command not found
 ```
 
@@ -257,14 +257,14 @@ Verifica che il container sia in esecuzione e che l'IP MacVLAN sia attivo:
 ```bash
 docker ps | grep pihole
 docker inspect pihole | grep IPAddress
-ping 192.168.0.250  # Da un ALTRO dispositivo (non dal Pi — vedi sotto)
+ping 192.168.0.250  # Da un ALTRO dispositivo (non dal Pi - vedi sotto)
 ```
 
 ### Il Raspberry Pi non raggiunge Pi-hole
 
-Per design di sicurezza del kernel Linux, l'host (Raspberry Pi) **non puo' comunicare** con i container MacVLAN sulla stessa interfaccia (vedi sezione VLAN per la spiegazione tecnica). Questo non e' un bug — e' una feature di sicurezza.
+Per design di sicurezza del kernel Linux, l'host (Raspberry Pi) **non puo' comunicare** con i container MacVLAN sulla stessa interfaccia (vedi sezione VLAN per la spiegazione tecnica). Questo non e' un bug - e' una feature di sicurezza.
 
-**Conseguenza pratica:** Il Raspberry Pi stesso non puo' usare Pi-hole come DNS. Per un server headless, questo non e' un problema — il Pi non naviga su Internet.
+**Conseguenza pratica:** Il Raspberry Pi stesso non puo' usare Pi-hole come DNS. Per un server headless, questo non e' un problema - il Pi non naviga su Internet.
 
 ---
 
@@ -280,4 +280,4 @@ La struttura MacVLAN permette di aggiungere altri container con IP dedicati sull
 
 ---
 
-Prossimo step: [Honeypot](../Honeypot/) — deployment di Cowrie per catturare attaccanti.
+Prossimo step: [Honeypot](../Honeypot/) - deployment di Cowrie per catturare attaccanti.
