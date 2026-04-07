@@ -1,4 +1,4 @@
-# First Setup — Installazione e Configurazione Iniziale del Raspberry Pi 5
+# First Setup - Installazione e Configurazione Iniziale del Raspberry Pi 5
 
 Questa guida copre tutto il necessario per portare un Raspberry Pi 5 da "scatola appena aperta" a "sistema operativo funzionante con boot da NVMe". Include i problemi reali che ho incontrato e come li ho risolti.
 
@@ -27,12 +27,12 @@ Al momento della stesura, Raspberry Pi OS e' disponibile in due versioni:
 | **Pacchetti Docker** | Stabili | Possibili breaking changes |
 | **Supporto comunita'** | Ampio, documentato | Limitato |
 
-**Regola pratica in cybersecurity:** su un sistema che deve fare da server 24/7, si usa *sempre* la release stable. I pacchetti testing/unstable possono introdurre regressioni che rompono servizi in produzione senza preavviso. Bookworm riceve security patches senza cambiamenti di funzionalita' — esattamente quello che serve.
+**Regola pratica in cybersecurity:** su un sistema che deve fare da server 24/7, si usa *sempre* la release stable. I pacchetti testing/unstable possono introdurre regressioni che rompono servizi in produzione senza preavviso. Bookworm riceve security patches senza cambiamenti di funzionalita' - esattamente quello che serve.
 
 Inoltre, **va usata la versione Lite (headless)**, senza interfaccia grafica. Motivi:
 
 - OpenMediaVault blocca esplicitamente l'installazione su sistemi con Desktop Environment
-- Un server non necessita di GUI — spreca RAM e CPU per nulla
+- Un server non necessita di GUI - spreca RAM e CPU per nulla
 - Meno superficie d'attacco: meno pacchetti installati = meno CVE potenziali
 
 ---
@@ -59,7 +59,7 @@ Selezionare **Raspberry Pi OS Lite (64-bit)** basato su Debian Bookworm. La vers
 
 - Wazuh Indexer (OpenSearch) richiede architettura a 64-bit
 - Docker su ARM64 ha un ecosistema di immagini piu' ampio rispetto a armhf (32-bit)
-- Il Raspberry Pi 5 ha 8GB di RAM — con un OS a 32-bit ne vedrebbe al massimo 4GB per processo (limite dello spazio di indirizzamento a 32-bit)
+- Il Raspberry Pi 5 ha 8GB di RAM - con un OS a 32-bit ne vedrebbe al massimo 4GB per processo (limite dello spazio di indirizzamento a 32-bit)
 
 ![Selezione Raspberry Pi OS Lite 64-bit Bookworm](img/rpi-imager-os-lite.jpg)
 
@@ -77,7 +77,7 @@ Prima di scrivere, cliccare su **Customisation** e configurare:
 - **Username e Password**: creare un utente NON-root (es. `pi` con password robusta)
 - **Locale/Timezone**: `Europe/Rome`, layout tastiera `it`
 - **SSH**: abilitare SSH con autenticazione tramite password (la chiave pubblica la configureremo dopo)
-- **Wi-Fi**: NON configurare il Wi-Fi — un server deve usare Ethernet per stabilita' e per MacVLAN
+- **Wi-Fi**: NON configurare il Wi-Fi - un server deve usare Ethernet per stabilita' e per MacVLAN
 
 > **Nota di sicurezza:** la password impostata in Imager viene salvata in chiaro nel file `firstrun.sh` sulla SD durante il flash. Dopo il primo boot, il file viene eliminato, ma chiunque abbia accesso fisico alla SD prima del boot puo' leggerla. Se il dispositivo e' in un ambiente condiviso, cambiare la password immediatamente dopo il primo accesso.
 
@@ -117,7 +117,7 @@ ED25519 key fingerprint is SHA256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.
 Are you sure you want to continue connecting (yes/no/[fingerprint])?
 ```
 
-**Cosa sta succedendo a livello tecnico:** SSH utilizza il protocollo di scambio chiavi Diffie-Hellman (o la variante ECDH con Curve25519) per stabilire una sessione cifrata. La prima volta che ti connetti, il client non ha mai visto quel server e ti chiede di verificare manualmente il fingerprint — una rappresentazione compressa della chiave pubblica del server (nel formato `SHA256:base64`). Digitando `yes`, il client salva questa associazione `IP → chiave pubblica` nel file `~/.ssh/known_hosts`.
+**Cosa sta succedendo a livello tecnico:** SSH utilizza il protocollo di scambio chiavi Diffie-Hellman (o la variante ECDH con Curve25519) per stabilire una sessione cifrata. La prima volta che ti connetti, il client non ha mai visto quel server e ti chiede di verificare manualmente il fingerprint - una rappresentazione compressa della chiave pubblica del server (nel formato `SHA256:base64`). Digitando `yes`, il client salva questa associazione `IP → chiave pubblica` nel file `~/.ssh/known_hosts`.
 
 ### Il temuto "REMOTE HOST IDENTIFICATION HAS CHANGED"
 
@@ -199,7 +199,7 @@ Il flag `-a` (apply) scarica e scrive il firmware aggiornato nella EEPROM. Il re
 
 ---
 
-## Step 5: Architettura dello Storage — Perche' NVMe
+## Step 5: Architettura dello Storage - Perche' NVMe
 
 ### Il problema della MicroSD
 
@@ -207,7 +207,7 @@ Le MicroSD sono progettate per carichi di lavoro in lettura sequenziale (fotocam
 
 - **Log SIEM**: Wazuh scrive migliaia di eventi JSON al secondo su disco
 - **Database OpenSearch**: l'Indexer mantiene indici su disco con scritture random ad alta frequenza
-- **Docker layers**: pull di immagini, creazione di container, volumi — tutto I/O random
+- **Docker layers**: pull di immagini, creazione di container, volumi - tutto I/O random
 - **PCAP**: se si abilita la cattura di pacchetti, si parla di GB/giorno di scritture
 
 Le celle NAND delle MicroSD hanno un numero finito di cicli di scrittura (tipicamente 3.000-10.000 per consumer-grade). Con i carichi descritti, una SD si usura in pochi mesi, causando prima rallentamenti e poi corruzione del filesystem.
@@ -228,7 +228,7 @@ Un SSD NVMe collegato via PCIe offre:
 
 ### Due strategie di migrazione
 
-#### Opzione A — Docker Root Directory su NVMe (Consigliata per iniziare)
+#### Opzione A - Docker Root Directory su NVMe (Consigliata per iniziare)
 
 Il sistema operativo resta sulla MicroSD, ma tutti i dati Docker (immagini, container, volumi, log) vengono spostati sull'NVMe.
 
@@ -245,7 +245,7 @@ Per implementare questa opzione, dopo aver installato Docker (sezione Docker & P
 }
 ```
 
-#### Opzione B — Boot diretto da NVMe (Pro)
+#### Opzione B - Boot diretto da NVMe (Pro)
 
 Il sistema operativo viene clonato o installato direttamente sull'NVMe. La MicroSD non serve piu' per il boot.
 
@@ -287,4 +287,4 @@ Dopo aver completato questi step, il Raspberry Pi dovrebbe essere:
 - [x] Bootloader EEPROM aggiornato
 - [x] Storage NVMe configurato (o pianificato)
 
-Prossimo step: [NAS (Network Attached Storage)](../NAS%20(Network%20Attached%20Storage)/) — configurare OpenMediaVault e le condivisioni di rete.
+Prossimo step: [NAS (Network Attached Storage)](../NAS%20(Network%20Attached%20Storage)/) - configurare OpenMediaVault e le condivisioni di rete.
