@@ -1,4 +1,4 @@
-# VPN Server — WireGuard su Docker con wg-easy
+# VPN Server - WireGuard su Docker con wg-easy
 
 Guida completa per trasformare il Raspberry Pi in un server VPN usando WireGuard. Questa guida nasce dalla mia esperienza diretta e copre non solo l'installazione software, ma anche le complesse configurazioni di rete (DMZ, Double NAT, DDNS) che sono state necessarie per far funzionare il tutto con un provider FWA (Fixed Wireless Access).
 
@@ -8,7 +8,7 @@ Guida completa per trasformare il Raspberry Pi in un server VPN usando WireGuard
 
 ### Cos'e' una VPN
 
-Una VPN (Virtual Private Network) crea un **tunnel crittografato** tra un dispositivo remoto (smartphone, laptop) e la rete di casa. Il traffico viaggia incapsulato all'interno di pacchetti cifrati — chiunque intercetti il traffico (ISP, Wi-Fi pubblico, attaccante MITM) vede solo dati illeggibili.
+Una VPN (Virtual Private Network) crea un **tunnel crittografato** tra un dispositivo remoto (smartphone, laptop) e la rete di casa. Il traffico viaggia incapsulato all'interno di pacchetti cifrati - chiunque intercetti il traffico (ISP, Wi-Fi pubblico, attaccante MITM) vede solo dati illeggibili.
 
 Casi d'uso concreti:
 
@@ -29,7 +29,7 @@ Casi d'uso concreti:
 
 ### Crittografia di WireGuard (per i curiosi)
 
-WireGuard usa una suite crittografica fissa e moderna — nessuna negoziazione, nessuna scelta di cipher suite:
+WireGuard usa una suite crittografica fissa e moderna - nessuna negoziazione, nessuna scelta di cipher suite:
 
 | Funzione | Algoritmo | Scopo |
 |---|---|---|
@@ -43,10 +43,10 @@ WireGuard usa una suite crittografica fissa e moderna — nessuna negoziazione, 
 
 Il **Noise Protocol Framework** (usato da WireGuard) gestisce l'handshake crittografico. In sintesi:
 
-1. I peer si scambiano chiavi pubbliche Curve25519 (fuori banda — manualmente o via QR code)
+1. I peer si scambiano chiavi pubbliche Curve25519 (fuori banda - manualmente o via QR code)
 2. All'inizio della sessione, eseguono un handshake a 1-RTT (1 Round Trip Time) per derivare le chiavi di sessione
 3. Le chiavi di sessione vengono ruotate ogni 2 minuti o dopo un certo volume di dati
-4. Se non c'e' traffico, WireGuard non invia nulla (a differenza di OpenVPN che manda keepalive) — da qui il basso consumo batteria
+4. Se non c'e' traffico, WireGuard non invia nulla (a differenza di OpenVPN che manda keepalive) - da qui il basso consumo batteria
 
 ---
 
@@ -64,7 +64,7 @@ Internet → [Antenna Provider (NAT #1)] → [Router TP-Link (NAT #2)] → [Rasp
 
 **Cos'e' il CGNAT (Carrier-Grade NAT):** Il provider assegna alla mia antenna un IP **privato** (tipo `10.x.x.x` o `100.64.x.x`) invece di un IP pubblico. Questo significa che il mio router, pur avendo un "IP WAN", ha in realta' un IP che non e' raggiungibile da Internet.
 
-**Come l'ho scoperto:** Controllando l'IP WAN sul router, vedevo un indirizzo `192.168.x.x` — chiaramente un IP privato. Il port forwarding sul TP-Link non serviva a nulla perche' il traffico veniva bloccato a monte, sul NAT del provider.
+**Come l'ho scoperto:** Controllando l'IP WAN sul router, vedevo un indirizzo `192.168.x.x` - chiaramente un IP privato. Il port forwarding sul TP-Link non serviva a nulla perche' il traffico veniva bloccato a monte, sul NAT del provider.
 
 ### La soluzione: DMZ sul provider
 
@@ -161,7 +161,7 @@ services:
       # Porta del tunnel VPN (deve corrispondere al port forwarding)
       - WG_PORT=51820
 
-      # Subnet interna della VPN — ogni client riceve un IP 10.8.0.x
+      # Subnet interna della VPN - ogni client riceve un IP 10.8.0.x
       - WG_DEFAULT_ADDRESS=10.8.0.x
 
       # DNS usato dai client VPN
@@ -177,7 +177,7 @@ services:
       # MTU ridotto per compatibilita' con reti mobili
       - WG_MTU=1280
 
-    # IMPORTANTE: versione 13 — vedi troubleshooting
+    # IMPORTANTE: versione 13 - vedi troubleshooting
     image: ghcr.io/wg-easy/wg-easy:13
     container_name: wireguard
     volumes:
@@ -196,13 +196,13 @@ services:
 
 ### Spiegazione dei parametri chiave
 
-**`WG_ALLOWED_IPS`** — Controlla quali destinazioni sono raggiungibili tramite il tunnel VPN:
+**`WG_ALLOWED_IPS`** - Controlla quali destinazioni sono raggiungibili tramite il tunnel VPN:
 
 - `192.168.0.0/24`: solo traffico verso la LAN di casa passa per la VPN (split tunnel)
 - `0.0.0.0/0`: TUTTO il traffico passa per la VPN, incluso il browsing web (full tunnel)
 - La combinazione che uso include entrambi, dando al client pieno accesso sia alla LAN che a Internet tramite il tunnel
 
-**`WG_MTU=1280`** — Il MTU (Maximum Transmission Unit) e' la dimensione massima di un pacchetto di rete. Il valore standard e' 1500 byte. WireGuard aggiunge un header di ~60-80 byte a ogni pacchetto (encapsulation), quindi il MTU effettivo deve essere ridotto. Con 1280:
+**`WG_MTU=1280`** - Il MTU (Maximum Transmission Unit) e' la dimensione massima di un pacchetto di rete. Il valore standard e' 1500 byte. WireGuard aggiunge un header di ~60-80 byte a ogni pacchetto (encapsulation), quindi il MTU effettivo deve essere ridotto. Con 1280:
 
 ```
 [IP header: 20B] [UDP header: 8B] [WG header: ~32B] [Payload: 1280B] = ~1340B < 1500B
@@ -220,7 +220,7 @@ Web UI raggiungibile su: `http://192.168.0.102:51821`
 
 ---
 
-## Troubleshooting — Problemi reali e soluzioni
+## Troubleshooting - Problemi reali e soluzioni
 
 ### Problema 1: Container in bootloop (errore password)
 
@@ -277,4 +277,4 @@ Per confermare che la VPN funzioni:
 
 ---
 
-Prossimo step: [ADS Blocker](../ADS%20Blocker/) — Pi-hole come DNS sinkhole per bloccare pubblicita' e tracking.
+Prossimo step: [ADS Blocker](../ADS%20Blocker/) - Pi-hole come DNS sinkhole per bloccare pubblicita' e tracking.
