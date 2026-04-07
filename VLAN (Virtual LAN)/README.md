@@ -1,4 +1,4 @@
-# VLAN e IPVLAN — Segmentazione di Rete Avanzata con Docker
+# VLAN e IPVLAN - Segmentazione di Rete Avanzata con Docker
 
 Questa guida documenta la configurazione di container Docker su un Raspberry Pi utilizzando il driver di rete **IPVLAN** in modalita' L2 su una **VLAN dedicata (802.1Q)**. Include la teoria necessaria per capire cosa si sta facendo e i problemi che ho incontrato nella pratica.
 
@@ -24,8 +24,8 @@ Docker offre diversi driver di rete. La scelta del driver ha impatto diretto su 
 
 - Ogni container riceve un IP privato nella subnet interna di Docker (172.17.0.0/16)
 - Il traffico verso l'esterno passa attraverso NAT (Network Address Translation)
-- **Problema:** Tutti i pacchetti in uscita hanno come IP sorgente l'indirizzo del Raspberry Pi. Pi-hole non puo' distinguere quale client ha fatto la query DNS — vede solo l'IP del gateway Docker
-- **Problema:** Per esporre porte, serve `-p 80:80` (port mapping) — conflitto se l'host usa gia' quella porta
+- **Problema:** Tutti i pacchetti in uscita hanno come IP sorgente l'indirizzo del Raspberry Pi. Pi-hole non puo' distinguere quale client ha fatto la query DNS - vede solo l'IP del gateway Docker
+- **Problema:** Per esporre porte, serve `-p 80:80` (port mapping) - conflitto se l'host usa gia' quella porta
 
 ### MacVLAN
 
@@ -47,7 +47,7 @@ Docker offre diversi driver di rete. La scelta del driver ha impatto diretto su 
 ```
 
 - Il container **condivide il MAC address** dell'host ma ha un IP diverso
-- Opera a Layer 2 — i frame Ethernet vengono inviati direttamente sulla rete fisica
+- Opera a Layer 2 - i frame Ethernet vengono inviati direttamente sulla rete fisica
 - **Vantaggio:** Compatibile con ambienti dove le policy di sicurezza limitano il numero di MAC per porta (802.1X, port security su switch managed)
 - **Stessa limitazione** di MacVLAN: host e container non comunicano direttamente
 
@@ -74,7 +74,7 @@ Una **VLAN (Virtual LAN)** e' una rete logica separata che condivide la stessa i
 
 Il tag contiene:
 
-- **TPID** (Tag Protocol Identifier): `0x8100` — identifica il frame come taggato
+- **TPID** (Tag Protocol Identifier): `0x8100` - identifica il frame come taggato
 - **PCP** (Priority Code Point): 3 bit per QoS (priorita' del traffico)
 - **DEI** (Drop Eligible Indicator): 1 bit
 - **VID** (VLAN Identifier): 12 bit → supporta fino a 4094 VLAN (0 e 4095 riservati)
@@ -139,7 +139,7 @@ ip a
         valid_lft forever preferred_lft forever
 ```
 
-L'interfaccia `end0.150@end0` e' attiva. Nota che non ha un indirizzo IPv4 — non ne ha bisogno, sara' Docker a gestire gli IP dei container.
+L'interfaccia `end0.150@end0` e' attiva. Nota che non ha un indirizzo IPv4 - non ne ha bisogno, sara' Docker a gestire gli IP dei container.
 
 > **Persistenza:** Questa configurazione si perde al reboot. Per renderla permanente, aggiungere al file `/etc/network/interfaces.d/vlan150`:
 > ```
@@ -169,7 +169,7 @@ Spiegazione di ogni parametro:
 | `-o parent=end0.150` | **Punto critico:** collega la rete Docker alla sotto-interfaccia VLAN, NON all'interfaccia fisica |
 | `-o ipvlan_mode=l2` | Modalita' Layer 2: condivide il MAC dell'host, opera come bridge diretto |
 
-![Portainer — Lista delle reti Docker mostra la rete ipvlan_150 con subnet 192.168.150.0/24](img/portainer-network-list.jpg)
+![Portainer - Lista delle reti Docker mostra la rete ipvlan_150 con subnet 192.168.150.0/24](img/portainer-network-list.jpg)
 
 ### Step 4: Test di connettivita'
 
@@ -267,7 +267,7 @@ Se hai gia' un container Pi-hole in esecuzione sulla rete bridge e vuoi spostarl
 3. Nella sezione **Network**:
    - Rimuovi `bridge`
    - Seleziona `ipvlan_150`
-   - **Importante:** Cancella il campo **MAC Address** — Docker deve generarne uno nuovo per la nuova rete. Lasciare il vecchio MAC causa conflitti ARP
+   - **Importante:** Cancella il campo **MAC Address** - Docker deve generarne uno nuovo per la nuova rete. Lasciare il vecchio MAC causa conflitti ARP
    - Nel campo **IPv4 Address**, inserisci l'IP statico (es. `192.168.150.69`)
 4. Clicca **Deploy the container** e conferma con **Replace**
 
@@ -319,4 +319,4 @@ Perdi l'isolamento VLAN, ma mantieni i vantaggi di IPVLAN (IP dedicato, no NAT, 
 
 ---
 
-Prossimo step: [VPN (Virtual Private Network)](../VPN%20(Virtual%20Private%20Network)/) — accesso remoto sicuro alla LAN.
+Prossimo step: [VPN (Virtual Private Network)](../VPN%20(Virtual%20Private%20Network)/) - accesso remoto sicuro alla LAN.
