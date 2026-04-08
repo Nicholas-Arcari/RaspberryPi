@@ -79,7 +79,7 @@ Questa e' la fase piu' critica. Il client e il server devono concordare una **ch
 5. Il **server** calcola `K = e_s * Q_c = e_s * e_c * G`
 6. `K` e' identico su entrambi i lati (proprieta' commutativa della moltiplicazione scalare), ma **non e' mai transitato sulla rete**
 
-Un attaccante che intercetta `Q_c` e `Q_s` dovrebbe risolvere il **Problema del Logaritmo Discreto su Curva Ellittica (ECDLP)** per ricavare `e_c` o `e_s` — computazionalmente impossibile con le dimensioni di Curve25519 (256 bit → sicurezza ~128 bit).
+Un attaccante che intercetta `Q_c` e `Q_s` dovrebbe risolvere il **Problema del Logaritmo Discreto su Curva Ellittica (ECDLP)** per ricavare `e_c` o `e_s` - computazionalmente impossibile con le dimensioni di Curve25519 (256 bit → sicurezza ~128 bit).
 
 **Session Key derivation:** Dal segreto condiviso `K` e dall'hash di sessione `H`, SSH deriva 6 chiavi separate usando SHA-256:
 
@@ -108,7 +108,7 @@ SSH usa **due tipi di chiavi asimmetriche** per scopi completamente diversi. Con
 ```
 
 - **Generate automaticamente** al primo avvio di `sshd` (o durante l'installazione dell'OS)
-- Servono ad **autenticare il server al client** — "sei davvero il mio Raspberry Pi, o un impostore?"
+- Servono ad **autenticare il server al client** - "sei davvero il mio Raspberry Pi, o un impostore?"
 - Il server firma l'hash di sessione `H` con la host key privata durante il KEX (Fase 3)
 - Il client verifica la firma usando la host key pubblica salvata in `~/.ssh/known_hosts`
 - **Se cambiano** (reinstallazione OS, diverso dispositivo sullo stesso IP): l'avviso "REMOTE HOST IDENTIFICATION HAS CHANGED"
@@ -121,7 +121,7 @@ SSH usa **due tipi di chiavi asimmetriche** per scopi completamente diversi. Con
 ```
 
 - **Generate dall'utente** con `ssh-keygen`
-- Servono ad **autenticare l'utente al server** — "sei davvero Nick, o un impostore?"
+- Servono ad **autenticare l'utente al server** - "sei davvero Nick, o un impostore?"
 - La chiave pubblica viene copiata in `~/.ssh/authorized_keys` sul server
 - La chiave privata **non lascia mai il client**
 
@@ -162,7 +162,7 @@ ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
 
 Se hai accesso fisico al Pi (o una sessione SSH gia' trusted), puoi confrontare questo output con il fingerprint presentato dal client. Se corrispondono, la connessione e' autentica.
 
-> **In pratica:** nella maggior parte dei setup domestici, la prima connessione avviene sulla stessa LAN, dove un attacco MitM e' poco probabile. Ma in ambienti enterprise o su reti non fidate, la verifica del fingerprint e' obbligatoria — idealmente il fingerprint viene comunicato su un canale separato (es. di persona, via telefono, su un documento interno).
+> **In pratica:** nella maggior parte dei setup domestici, la prima connessione avviene sulla stessa LAN, dove un attacco MitM e' poco probabile. Ma in ambienti enterprise o su reti non fidate, la verifica del fingerprint e' obbligatoria - idealmente il fingerprint viene comunicato su un canale separato (es. di persona, via telefono, su un documento interno).
 
 **Formato legacy MD5:** Le versioni piu' vecchie di OpenSSH mostravano il fingerprint in formato MD5 esadecimale:
 
@@ -185,7 +185,7 @@ Formato dei campi:
 
 | Campo | Significato |
 |---|---|
-| `\|1\|base64salt=\|base64hash=` | **Hashed hostname** — l'IP/hostname del server, offuscato con HMAC-SHA1 per privacy (un attaccante che ruba il file non puo' enumerare i server a cui ti connetti) |
+| `\|1\|base64salt=\|base64hash=` | **Hashed hostname** - l'IP/hostname del server, offuscato con HMAC-SHA1 per privacy (un attaccante che ruba il file non puo' enumerare i server a cui ti connetti) |
 | `ssh-ed25519` | Tipo di chiave |
 | `AAAAC3NzaC1...` | Chiave pubblica completa in Base64 |
 
@@ -258,7 +258,7 @@ Client                                              Server
 
 **Il punto cruciale:** la chiave privata non attraversa mai la rete. Il server invia una sfida (challenge), il client la firma con la chiave privata, il server verifica la firma con la chiave pubblica. Questo e' il principio fondamentale della crittografia asimmetrica applicata all'autenticazione: **la conoscenza della chiave pubblica permette di verificare, ma non di forgiare, una firma**.
 
-Anche se un attaccante intercettasse l'intera sessione, otterrebbe solo la firma di quel challenge specifico — non la chiave privata, e non una firma riutilizzabile (ogni challenge e' unico).
+Anche se un attaccante intercettasse l'intera sessione, otterrebbe solo la firma di quel challenge specifico - non la chiave privata, e non una firma riutilizzabile (ogni challenge e' unico).
 
 ### Configurazione
 
@@ -454,7 +454,7 @@ bantime = 3600     # Ban per 1 ora
 
 ### Come funziona a basso livello: netfilter e iptables
 
-UFW e' un'interfaccia semplificata per **iptables**, che a sua volta e' il frontend userspace di **netfilter** — il framework di packet filtering integrato nel kernel Linux. Per capire perche' l'ordine delle regole UFW conta (e debuggare quando qualcosa non funziona), serve capire l'architettura sottostante.
+UFW e' un'interfaccia semplificata per **iptables**, che a sua volta e' il frontend userspace di **netfilter** - il framework di packet filtering integrato nel kernel Linux. Per capire perche' l'ordine delle regole UFW conta (e debuggare quando qualcosa non funziona), serve capire l'architettura sottostante.
 
 #### I 5 hook points di netfilter
 
@@ -479,7 +479,7 @@ in ingresso                  decision                decision                  r
 | Hook | Quando si attiva | Uso tipico |
 |---|---|---|
 | `PREROUTING` | Appena il pacchetto arriva, prima di qualsiasi decisione di routing | DNAT (port forwarding), modifica IP destinazione |
-| `INPUT` | Dopo il routing, se il pacchetto e' destinato a un processo locale | **Firewall in ingresso** — dove UFW opera principalmente |
+| `INPUT` | Dopo il routing, se il pacchetto e' destinato a un processo locale | **Firewall in ingresso** - dove UFW opera principalmente |
 | `FORWARD` | Se il pacchetto deve essere inoltrato a un'altra interfaccia (il host fa da router) | Firewall per traffico in transito (es. container Docker) |
 | `OUTPUT` | Generato da un processo locale, prima del routing in uscita | Firewall in uscita (raramente usato) |
 | `POSTROUTING` | Dopo il routing, appena prima di uscire dall'interfaccia | SNAT/MASQUERADE (usato da WireGuard per il NAT dei client VPN) |
@@ -490,16 +490,16 @@ Le regole non sono tutte nello stesso "contenitore". iptables le organizza in **
 
 | Tabella | Scopo | Hook disponibili | Usata nel nostro progetto |
 |---|---|---|---|
-| `filter` | Accettare o scartare pacchetti (firewall) | INPUT, FORWARD, OUTPUT | **Si** — UFW, Fail2ban |
-| `nat` | Modificare IP/porta sorgente o destinazione | PREROUTING, OUTPUT, POSTROUTING | **Si** — Docker bridge (NAT container), WireGuard (MASQUERADE) |
+| `filter` | Accettare o scartare pacchetti (firewall) | INPUT, FORWARD, OUTPUT | **Si** - UFW, Fail2ban |
+| `nat` | Modificare IP/porta sorgente o destinazione | PREROUTING, OUTPUT, POSTROUTING | **Si** - Docker bridge (NAT container), WireGuard (MASQUERADE) |
 | `mangle` | Modificare header del pacchetto (TTL, TOS, marking) | Tutti e 5 | No (uso avanzato, QoS) |
 | `raw` | Marcare pacchetti per bypassare connection tracking | PREROUTING, OUTPUT | No (uso avanzato) |
 
 #### Connection Tracking (conntrack): firewall stateful
 
-iptables (e quindi UFW) e' un **firewall stateful** — non valuta ogni pacchetto in isolamento, ma tiene traccia delle **connessioni**.
+iptables (e quindi UFW) e' un **firewall stateful** - non valuta ogni pacchetto in isolamento, ma tiene traccia delle **connessioni**.
 
-Verifica pratica — mostra le connessioni tracciate dal kernel:
+Verifica pratica - mostra le connessioni tracciate dal kernel:
 
 ```bash
 sudo conntrack -L 2>/dev/null | head -5
@@ -523,7 +523,7 @@ Il kernel traccia lo **stato** di ogni connessione:
 | `RELATED` | Nuova connessione correlata a una esistente | Messaggio ICMP "port unreachable" in risposta a una connessione |
 | `INVALID` | Pacchetto che non appartiene a nessuna connessione nota | Pacchetti malformati, scan TCP anomali |
 
-**Perche' conta:** Quando UFW fa `default deny incoming`, in realta' blocca solo i pacchetti `NEW` in ingresso (nuove connessioni dall'esterno). I pacchetti `ESTABLISHED` e `RELATED` passano — altrimenti non potresti ricevere le risposte alle tue richieste (es. navigare web, fare apt update). Questo e' implementato dalla regola automatica:
+**Perche' conta:** Quando UFW fa `default deny incoming`, in realta' blocca solo i pacchetti `NEW` in ingresso (nuove connessioni dall'esterno). I pacchetti `ESTABLISHED` e `RELATED` passano - altrimenti non potresti ricevere le risposte alle tue richieste (es. navigare web, fare apt update). Questo e' implementato dalla regola automatica:
 
 ```
 -A ufw-before-input -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
@@ -649,12 +649,12 @@ sudo nano /etc/sysctl.d/99-hardening.conf
 
 # Abilita protezione SYN flood (SYN cookies)
 # Quando la coda SYN e' piena, il kernel genera un SYN cookie crittografico
-# invece di allocare memoria — previene DoS da SYN flood
+# invece di allocare memoria - previene DoS da SYN flood
 net.ipv4.tcp_syncookies = 1
 
 # Disabilita il source routing
 # Il source routing permette al mittente di specificare il percorso dei pacchetti
-# attraverso la rete — usato in attacchi di routing manipulation
+# attraverso la rete - usato in attacchi di routing manipulation
 net.ipv4.conf.all.accept_source_route = 0
 net.ipv6.conf.all.accept_source_route = 0
 
@@ -666,20 +666,20 @@ net.ipv4.conf.default.accept_redirects = 0
 net.ipv6.conf.all.accept_redirects = 0
 
 # Disabilita invio di ICMP redirect
-# Un server non dovrebbe mai agire da router — non invia redirect
+# Un server non dovrebbe mai agire da router - non invia redirect
 net.ipv4.conf.all.send_redirects = 0
 net.ipv4.conf.default.send_redirects = 0
 
 # Abilita Reverse Path Filtering (anti-spoofing)
 # Il kernel verifica che l'IP sorgente di un pacchetto in ingresso sia
-# raggiungibile dall'interfaccia su cui e' arrivato — blocca pacchetti con
+# raggiungibile dall'interfaccia su cui e' arrivato - blocca pacchetti con
 # IP sorgente falsificato
 net.ipv4.conf.all.rp_filter = 1
 net.ipv4.conf.default.rp_filter = 1
 
 # Ignora ping broadcast (prevenzione Smurf attack)
 # Un attaccante invia ping all'indirizzo broadcast della rete con IP sorgente
-# falsificato (la vittima) — tutti gli host rispondono alla vittima
+# falsificato (la vittima) - tutti gli host rispondono alla vittima
 net.ipv4.icmp_echo_ignore_broadcasts = 1
 
 # Log dei pacchetti "marziani" (IP sorgente impossibile)
@@ -708,7 +708,7 @@ kernel.dmesg_restrict = 1
 # NOTA: abilitare solo se tutti i moduli necessari sono gia' caricati
 # kernel.modules_disabled = 1   # <-- COMMENTATO: WireGuard potrebbe aver bisogno di caricare moduli
 
-# Limita l'uso di perf (performance counters) — usabili per side-channel attacks
+# Limita l'uso di perf (performance counters) - usabili per side-channel attacks
 kernel.perf_event_paranoid = 3
 ```
 
