@@ -41,12 +41,85 @@ WireGuard usa una suite crittografica fissa e moderna - nessuna negoziazione, ne
 
 > **Nota su ARM e ChaCha20:** AES-256 e' veloce su CPU x86 con l'istruzione AES-NI hardware. Il Raspberry Pi 5 (Cortex-A76) ha supporto ARMv8 Crypto Extensions, quindi AES e' comunque veloce. Tuttavia, ChaCha20 e' progettato per essere veloce anche senza accelerazione hardware, rendendolo una scelta robusta per qualsiasi piattaforma.
 
-Il **Noise Protocol Framework** (usato da WireGuard) gestisce l'handshake crittografico. In sintesi:
+### Noise Protocol Framework: l'handshake IK in dettaglio
 
-1. I peer si scambiano chiavi pubbliche Curve25519 (fuori banda - manualmente o via QR code)
-2. All'inizio della sessione, eseguono un handshake a 1-RTT (1 Round Trip Time) per derivare le chiavi di sessione
-3. Le chiavi di sessione vengono ruotate ogni 2 minuti o dopo un certo volume di dati
-4. Se non c'e' traffico, WireGuard non invia nulla (a differenza di OpenVPN che manda keepalive) - da qui il basso consumo batteria
+WireGuard utilizza il pattern **Noise_IKpsk2** dal Noise Protocol Framework. "IK" significa che l'**Initiator** conosce gia' la chiave pubblica statica del **Responder** (configurata manualmente o via QR code), e il Responder apprende quella dell'Initiator durante l'handshake.
+
+L'intero handshake richiede **1-RTT** (un solo round-trip) e si completa in 2 messaggi:
+
+```
+Initiator (client)                              Responder (server)
+     │                                               │
+     │  Possiede: S_i (statica), E_i (effimera)      │  Possiede: S_r (statica)
+     │  Conosce:  S_r_pub (chiave pubblica server)    │
+     │                                               │
+     ├── Handshake Initiation ──────────────────────►│
+     │   [sender_index, E_i_pub,                     │
+     │    AEAD(S_i_pub), AEAD(timestamp)]            │
+     │                                               │
+     │   DH #1: E_i × S_r_pub  (effimera × statica) │
+     │   DH #2: S_i × S_r_pub  (statica × statica)  │
+     │                                               │
+     │◄── Handshake Response ────────────────────────┤
+     │   [sender_index, receiver_index, E_r_pub,     │
+     │    AEAD(empty)]                               │
+     │                                               │
+     │   DH #3: E_i × E_r_pub  (effimera × effimera)│
+     │   DH #4: S_i × E_r_pub  (statica × effimera) │
+     │                                               │
+     ├── Transport Data ────────────────────────────►│
+     │◄── Transport Data ────────────────────────────┤
+```
+
+**Le 4 operazioni Diffie-Hellman:**
+
+| # | Operazione | Scopo |
+|---|---|---|
+| DH #1 | `E_initiator × S_responder` | Forward secrecy parziale: anche se la chiave statica del client viene compromessa in futuro, questa sessione resta sicura (la chiave effimera e' distrutta) |
+| DH #2 | `S_initiator × S_responder` | Autentica l'initiator al responder - conferma che il client possiede la chiave statica dichiarata |
+| DH #3 | `E_initiator × E_responder` | **Full forward secrecy**: entrambe le chiavi sono effimere. Anche compromettendo TUTTE le chiavi statiche, il traffico passato resta cifrato |
+| DH #4 | `S_initiator × E_responder` | Autentica il responder all'initiator - conferma che il server possiede la chiave statica dichiarata |
+
+Ogni DH produce materiale crittografico che viene mixato progressivamente in una **chaining key** tramite HKDF. Il risultato finale sono due chiavi simmetriche (una per direzione) usate per cifrare i dati con ChaCha20-Poly1305.
+
+**Perche' il timestamp nel primo messaggio:** Il campo `AEAD(timestamp)` serve come protezione anti-replay. Il responder accetta solo handshake con timestamp crescente - un attaccante che cattura e riproduce un pacchetto di handshake vecchio viene rifiutato.
+
+**Rotazione delle chiavi:** Le chiavi di sessione vengono ruotate automaticamente ogni **2 minuti** o dopo **2^64 - 1 pacchetti** (il contatore del nonce ChaCha20). Se non c'e' traffico, WireGuard non invia nulla (a differenza di OpenVPN che manda keepalive) - da qui il basso consumo batteria. Dopo 5 minuti di silenzio, WireGuard considera la sessione scaduta e rinegozia al prossimo pacchetto.
+
+### Cryptokey Routing: l'innovazione architetturale
+
+La vera innovazione di WireGuard non e' la crittografia, ma il concetto di **Cryptokey Routing Table**: una tabella che associa direttamente **subnet di destinazione → chiave pubblica del peer**.
+
+In un VPN tradizionale (OpenVPN, IPSec), il routing e la crittografia sono separati: prima il kernel decide dove mandare il pacchetto (routing table), poi il tunnel lo cifra. In WireGuard, le due operazioni sono **fuse**:
+
+```
+Interfaccia wg0 - Cryptokey Routing Table:
+┌─────────────────────┬──────────────────────────────────────────────────┬─────────────────────────┐
+│ Allowed IPs         │ Peer (chiave pubblica)                          │ Endpoint               │
+├─────────────────────┼──────────────────────────────────────────────────┼─────────────────────────┤
+│ 10.8.0.2/32         │ gN65BkIK...  (iPhone di Nick)                   │ 82.XX.XX.XX:43721      │
+│ 10.8.0.3/32         │ 7Rp2kLQm...  (Laptop lavoro)                   │ 151.XX.XX.XX:51820     │
+│ 0.0.0.0/0           │ aF9xMnPq...  (Full tunnel - tutto il traffico) │ 93.XX.XX.XX:38442      │
+└─────────────────────┴──────────────────────────────────────────────────┴─────────────────────────┘
+```
+
+**Quando un pacchetto viene inviato:**
+1. Il kernel riceve un pacchetto destinato a `10.8.0.2` sull'interfaccia `wg0`
+2. WireGuard cerca nella Cryptokey Routing Table: `10.8.0.2` matcha la riga con `gN65BkIK...`
+3. Il pacchetto viene cifrato con la chiave di sessione derivata dall'handshake con quel peer
+4. Il pacchetto cifrato viene incapsulato in UDP e inviato all'endpoint del peer
+
+**Quando un pacchetto viene ricevuto:**
+1. WireGuard riceve un pacchetto UDP cifrato
+2. Lo decifra con la chiave di sessione del peer mittente (identificato dall'`index` nell'header)
+3. Dopo la decifratura, controlla l'IP sorgente del pacchetto interno
+4. **Se l'IP sorgente non e' nell'`Allowed IPs` di quel peer, il pacchetto viene scartato silenziosamente** - questo e' il firewall crittografico implicito di WireGuard
+
+Questa architettura rende WireGuard intrinsecamente resistente allo spoofing: un peer non puo' inviare pacchetti fingendo di essere un altro IP, perche' la verifica `IP sorgente ∈ Allowed IPs` e' legata alla chiave crittografica.
+
+### Roaming trasparente
+
+WireGuard aggiorna l'endpoint di un peer **automaticamente**. Se il tuo telefono passa dal Wi-Fi al 4G (cambiando IP pubblico), il server riceve il prossimo pacchetto valido dal nuovo IP, aggiorna l'endpoint nella tabella, e continua senza interruzione. Non serve rinegoziare l'handshake - le chiavi di sessione restano valide indipendentemente dall'IP
 
 ---
 
@@ -210,6 +283,34 @@ services:
 
 Su reti mobili 4G/5G, il MTU del provider puo' essere gia' ridotto (1400-1420). Se il pacchetto WireGuard supera il MTU del provider, viene frammentato, causando rallentamenti o timeout. 1280 e' il minimo garantito da IPv6 e funziona ovunque.
 
+### Le regole iptables di wg-easy (PostUp/PostDown)
+
+Quando il container WireGuard si avvia, wg-easy esegue automaticamente regole iptables equivalenti a queste (configurabili con `WG_POST_UP` e `WG_POST_DOWN`):
+
+```bash
+# PostUp - eseguite all'avvio dell'interfaccia wg0:
+iptables -A FORWARD -i wg0 -j ACCEPT
+iptables -A FORWARD -o wg0 -j ACCEPT
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+
+# PostDown - eseguite allo stop:
+iptables -D FORWARD -i wg0 -j ACCEPT
+iptables -D FORWARD -o wg0 -j ACCEPT
+iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+```
+
+**Analisi delle regole:**
+
+| Regola | Chain | Significato |
+|---|---|---|
+| `FORWARD -i wg0 -j ACCEPT` | FORWARD | Accetta pacchetti **provenienti** dal tunnel VPN e diretti verso la LAN o Internet. Senza questa regola, il kernel scarterebbe il traffico dei client VPN |
+| `FORWARD -o wg0 -j ACCEPT` | FORWARD | Accetta pacchetti **diretti** verso il tunnel VPN (risposte dalla LAN/Internet verso i client VPN) |
+| `POSTROUTING -o eth0 -j MASQUERADE` | NAT | **Critico**: esegue Source NAT (SNAT) sui pacchetti in uscita dall'interfaccia fisica. Quando un client VPN (10.8.0.2) accede a un dispositivo sulla LAN (192.168.0.50), l'IP sorgente viene riscritto con l'IP del Raspberry Pi (192.168.0.102). Senza questa regola, il dispositivo di destinazione riceverebbe un pacchetto con sorgente 10.8.0.2 e non saprebbe come rispondere (non ha una rotta verso la subnet 10.8.0.0/24) |
+
+**`MASQUERADE` vs `SNAT`:** Su un'interfaccia con IP dinamico (come nel nostro caso con DHCP), si usa `MASQUERADE` che determina l'IP sorgente automaticamente ad ogni pacchetto. Su un'interfaccia con IP statico, `SNAT --to-source <IP>` sarebbe leggermente piu' efficiente perche' non deve fare il lookup dell'IP ad ogni pacchetto.
+
+Il `sysctl` `net.ipv4.ip_forward=1` nel Docker Compose abilita il routing tra interfacce nel namespace del container - senza, il kernel scarterebbe qualsiasi pacchetto non destinato a se' stesso.
+
 ### Avvio
 
 ```bash
@@ -217,6 +318,48 @@ docker compose up -d
 ```
 
 Web UI raggiungibile su: `http://192.168.0.102:51821`
+
+### Verifica dello stato del tunnel: `wg show`
+
+Dopo aver connesso un client, entrare nel container per verificare lo stato:
+
+```bash
+docker exec -it wireguard wg show
+```
+
+Output esempio con due client connessi:
+
+```
+interface: wg0
+  public key: sRvY7mZB3K+x4QJn0dR1zE8bGPaj5N9vqKsMwoXf+Ew=
+  private key: (hidden)
+  listening port: 51820
+
+peer: gN65BkIKwT6rH0mJ2dPVzxR1aLbcOq5Nf3uYpWvX8Ds=
+  endpoint: 82.XX.XX.XX:43721
+  allowed ips: 10.8.0.2/32
+  latest handshake: 47 seconds ago
+  transfer: 2.47 MiB received, 14.82 MiB sent
+
+peer: 7Rp2kLQmVnB9oT1jX5yDfUwS8hAcEi6Zx0GqNpMrJ4k=
+  endpoint: 151.XX.XX.XX:51820
+  allowed ips: 10.8.0.3/32
+  latest handshake: 3 minutes, 12 seconds ago
+  transfer: 892.31 KiB received, 4.21 MiB sent
+```
+
+**Lettura dei campi:**
+
+| Campo | Significato | Cosa cercare |
+|---|---|---|
+| `public key` (interface) | Chiave pubblica del server | Deve corrispondere a quella nel file di configurazione dei client |
+| `listening port` | Porta UDP su cui WireGuard ascolta | Deve corrispondere al port forwarding del router (51820) |
+| `endpoint` | IP:porta corrente del peer | Si aggiorna automaticamente al roaming del client |
+| `allowed ips` | Subnet autorizzate per quel peer | `10.8.0.2/32` = solo il suo IP VPN (split tunnel lato server) |
+| `latest handshake` | Tempo dall'ultimo handshake completato | Se supera i 5 minuti, la sessione e' scaduta. Se dice `(none)`, il client non si e' mai connesso |
+| `transfer` | Byte scambiati (received = dal client, sent = verso il client) | Asimmetria estrema (molto sent, poco received) e' normale: il client naviga e il server inoltra le risposte |
+
+> **Diagnostica rapida:** Se `latest handshake` mostra `(none)` e il client sembra connesso, il problema e' quasi sempre il port forwarding: il pacchetto UDP non raggiunge il server. Verificare che la porta 51820/UDP sia aperta sul router e che UFW non la blocchi (`sudo ufw allow 51820/udp`)
 
 ---
 
