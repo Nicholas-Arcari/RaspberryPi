@@ -19,6 +19,146 @@ Browser → Cache locale → File hosts → Server DNS configurato → Root DNS 
 3. Se non trova la risposta, invia una **query DNS** al server configurato (tipicamente il router, che a sua volta inoltra al DNS del provider)
 4. Il DNS ricorsivo risolve il nome attraverso la gerarchia (root → `.com` → `google.com`) e restituisce l'IP
 
+### Risoluzione ricorsiva vs iterativa
+
+Questa distinzione e' fondamentale per capire dove Pi-hole si inserisce e perche' funziona.
+
+**Ricorsiva** - il client chiede al suo DNS server e si aspetta la risposta finale:
+
+```
+[Il tuo PC] ── "Qual e' l'IP di www.google.com?" ──► [Pi-hole / DNS ricorsivo]
+[Il tuo PC] ◄── "142.250.180.4" ───────────────────── [Pi-hole / DNS ricorsivo]
+```
+
+Il client fa **una sola domanda** e riceve la risposta completa. Tutto il lavoro lo fa il resolver ricorsivo (Pi-hole o il DNS del provider).
+
+**Iterativa** - il resolver ricorsivo interroga la gerarchia DNS un livello alla volta:
+
+```
+Pi-hole (resolver ricorsivo)                        Server DNS
+        │
+        ├── "Dove trovo www.google.com?" ──────────► [Root Server (.)]
+        │◄── "Non lo so, chiedi a .com: 192.5.6.30" ─┘
+        │
+        ├── "Dove trovo www.google.com?" ──────────► [TLD .com (192.5.6.30)]
+        │◄── "Non lo so, chiedi a google.com:       ─┘
+        │     216.239.32.10"
+        │
+        ├── "Qual e' l'IP di www.google.com?" ─────► [Authoritative google.com]
+        │◄── "142.250.180.4, TTL=300" ──────────────┘
+        │
+        └── Salva in cache per 300 secondi
+```
+
+La gerarchia DNS ha 3 livelli:
+
+| Livello | Esempio | Quanti ne esistono | Cosa contengono |
+|---|---|---|---|
+| **Root (.)** | `a.root-servers.net` ... `m.root-servers.net` | 13 cluster (anycast, centinaia di server fisici) | Puntatori ai TLD server |
+| **TLD** | Server di `.com`, `.org`, `.it`, `.net` | Uno per ogni TLD | Puntatori agli authoritative server dei domini |
+| **Authoritative** | Server di `google.com` | Uno per ogni dominio registrato | I record DNS effettivi (IP, MX, etc.) |
+
+### I Record DNS: tipi e casi d'uso pratici
+
+Ogni dominio ha diversi tipi di record. Puoi interrogarli con `dig` (installato su quasi tutti i sistemi Linux):
+
+```bash
+# Record A (IPv4) - il piu' comune, quello che Pi-hole blocca
+dig A www.google.com +short
+# 142.250.180.4
+
+# Record AAAA (IPv6)
+dig AAAA www.google.com +short
+# 2a00:1450:4002:402::2004
+
+# Record MX (Mail Exchange) - dove inviare le email per quel dominio
+dig MX google.com +short
+# 10 smtp.google.com.
+
+# Record NS (Name Server) - chi e' l'autorita' per quel dominio
+dig NS google.com +short
+# ns1.google.com.
+# ns2.google.com.
+
+# Record CNAME (alias) - un nome che punta a un altro nome
+dig CNAME www.github.com +short
+# github.github.io.
+
+# Record TXT - testo libero, usato per SPF, DKIM, verifica proprieta'
+dig TXT google.com +short
+# "v=spf1 include:_spf.google.com ~all"
+
+# Record SOA (Start of Authority) - metadati della zona DNS
+dig SOA google.com +short
+# ns1.google.com. dns-admin.google.com. 2024010100 900 900 1800 60
+```
+
+| Record | Tipo | Contenuto | Uso pratico |
+|---|---|---|---|
+| `A` | Indirizzo IPv4 | `142.250.180.4` | Traduzione nome → IP (il record che Pi-hole blocca rispondendo `0.0.0.0`) |
+| `AAAA` | Indirizzo IPv6 | `2a00:1450:...` | Come A, ma per IPv6 (Pi-hole blocca anche questi con `::`) |
+| `CNAME` | Alias (Canonical Name) | `github.github.io.` | Un dominio che punta a un altro dominio (il resolver segue la catena) |
+| `MX` | Mail Exchange | `10 smtp.google.com.` | Indica quale server riceve le email. Il numero e' la priorita' (piu' basso = preferito) |
+| `NS` | Name Server | `ns1.google.com.` | Indica i server autoritativi per il dominio |
+| `TXT` | Testo libero | `"v=spf1 ..."` | Verifica proprieta' dominio, SPF (anti-spam), DKIM, DMARC |
+| `SOA` | Start of Authority | serial, refresh, retry... | Metadati della zona DNS: serial number, intervalli di refresh, TTL negativo |
+| `PTR` | Reverse DNS | `hostname.example.com.` | Risoluzione inversa: IP → nome. Usato per verifiche anti-spam e log leggibili |
+| `SRV` | Service | `_sip._tcp.example.com.` | Indica dove trovare un servizio specifico (porta, protocollo, peso) |
+
+### Anatomia di un pacchetto DNS
+
+Ogni query DNS viaggia tipicamente su **UDP porta 53** (TCP solo se la risposta supera 512 byte o per zone transfer). Il pacchetto ha questa struttura:
+
+```
++--+--+--+--+--+--+--+--+--+--+--+--+
+|          Header (12 byte)           |
++--+--+--+--+--+--+--+--+--+--+--+--+
+|      Question Section               |  ← "Cosa stai chiedendo?"
++--+--+--+--+--+--+--+--+--+--+--+--+
+|      Answer Section                  |  ← "Ecco la risposta" (vuota nelle query)
++--+--+--+--+--+--+--+--+--+--+--+--+
+|      Authority Section               |  ← "Chi e' l'autorita' per questo dominio"
++--+--+--+--+--+--+--+--+--+--+--+--+
+|      Additional Section              |  ← Record extra utili (es. IP del NS)
++--+--+--+--+--+--+--+--+--+--+--+--+
+```
+
+**Header (12 byte fissi):**
+
+| Campo | Bit | Scopo |
+|---|---|---|
+| ID | 16 | Identificativo della transazione. La risposta ha lo stesso ID della query - cosi' il client sa a quale domanda corrisponde |
+| QR | 1 | 0 = query, 1 = response |
+| Opcode | 4 | 0 = standard query, 1 = inverse query, 2 = server status |
+| AA | 1 | Authoritative Answer - il server che risponde e' l'autorita' per il dominio |
+| TC | 1 | Truncated - la risposta e' stata troncata (supera 512 byte UDP), il client deve riprovare su TCP |
+| RD | 1 | Recursion Desired - il client chiede al server di risolvere ricorsivamente |
+| RA | 1 | Recursion Available - il server supporta la risoluzione ricorsiva |
+| RCODE | 4 | Codice di risposta: 0=NOERROR, 3=NXDOMAIN (dominio non esiste), 2=SERVFAIL |
+
+Puoi vedere un pacchetto DNS reale con `dig` in modalita' verbosa:
+
+```bash
+dig www.google.com +noall +answer +comments
+```
+
+```
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 41532
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+;; ANSWER SECTION:
+www.google.com.    300    IN    A    142.250.180.4
+│                   │      │    │    │
+│                   │      │    │    └── L'indirizzo IP
+│                   │      │    └── Tipo di record
+│                   │      └── Classe (IN = Internet)
+│                   └── TTL: 300 secondi di cache
+└── Il dominio richiesto
+```
+
+**Come Pi-hole sfrutta questo:** Quando Pi-hole blocca un dominio (es. `ads.doubleclick.net`), risponde con un pacchetto DNS valido ma con `ANSWER: 0.0.0.0` (o `NXDOMAIN`). Il browser riceve una risposta DNS formalmente corretta, ma l'IP nullo non porta da nessuna parte - la richiesta HTTP all'ad server non parte mai. Per il browser, e' come se il server di pubblicita' non esistesse
+
 ### Dove si inserisce Pi-hole
 
 Pi-hole si posiziona come **DNS server locale**. Tutte le query DNS della rete passano attraverso di lui:
@@ -265,6 +405,106 @@ ping 192.168.0.250  # Da un ALTRO dispositivo (non dal Pi - vedi sotto)
 Per design di sicurezza del kernel Linux, l'host (Raspberry Pi) **non puo' comunicare** con i container MacVLAN sulla stessa interfaccia (vedi sezione VLAN per la spiegazione tecnica). Questo non e' un bug - e' una feature di sicurezza.
 
 **Conseguenza pratica:** Il Raspberry Pi stesso non puo' usare Pi-hole come DNS. Per un server headless, questo non e' un problema - il Pi non naviga su Internet.
+
+---
+
+## Deep Dive: Pi-hole FTL Engine e gravity.db
+
+### FTL (Faster Than Light) - il cuore di Pi-hole
+
+Pi-hole non e' un semplice file `/etc/hosts` gigante. Il suo motore DNS si chiama **FTL (Faster Than Light)** ed e' un fork di `dnsmasq` con un layer di analisi e logging integrato.
+
+Come funziona una query:
+
+```
+Client (192.168.0.109) → query DNS "ads.doubleclick.net"
+     │
+     ▼
+[Pi-hole FTL riceve la query sulla porta 53]
+     │
+     ├── 1. Controlla la cache locale (risposte gia' note)
+     │       → HIT: risponde immediatamente (tempo: ~0.1ms)
+     │       → MISS: prosegue ▼
+     │
+     ├── 2. Controlla la whitelist (domini esplicitamente permessi)
+     │       → Se presente: inoltra al DNS upstream
+     │
+     ├── 3. Controlla gravity.db (il database dei domini bloccati)
+     │       → MATCH: risponde con 0.0.0.0 / :: (blocco)
+     │       → NO MATCH: prosegue ▼
+     │
+     ├── 4. Controlla regex/wildcard blocklist
+     │       → MATCH: blocca
+     │       → NO MATCH: prosegue ▼
+     │
+     └── 5. Inoltra la query al DNS upstream (8.8.8.8, 1.1.1.1)
+             → Riceve la risposta, la mette in cache, la restituisce al client
+```
+
+### gravity.db - il database SQLite delle blocklist
+
+Tutte le blocklist vengono scaricate, deduplicate e archiviate in un database SQLite locale:
+
+```bash
+# Dentro il container Pi-hole:
+docker exec -it pihole sqlite3 /etc/pihole/gravity.db
+
+# Contare i domini bloccati:
+sqlite3> SELECT COUNT(*) FROM gravity;
+# 79811
+
+# Vedere le blocklist configurate:
+sqlite3> SELECT address, enabled, number FROM adlist;
+# https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts|1|79811
+
+# Cercare un dominio specifico:
+sqlite3> SELECT * FROM gravity WHERE domain = 'ads.doubleclick.net';
+```
+
+**Struttura delle tabelle principali:**
+
+| Tabella | Contenuto |
+|---|---|
+| `gravity` | Tutti i domini bloccati (union di tutte le blocklist) |
+| `adlist` | URL delle blocklist con stato enabled/disabled |
+| `domainlist` | Whitelist e blacklist manuali (type 0 = whitelist, type 1 = blacklist) |
+| `client` | Client con policy personalizzate |
+| `domain_audit` | Domini segnalati per revisione |
+
+### Regex e Wildcard Blocking
+
+Oltre alle blocklist statiche, Pi-hole supporta pattern matching:
+
+```bash
+# Esempio: bloccare TUTTI i sottodomini di tracking
+# Nella dashboard → Domains → RegEx filter:
+(^|\.)tracking\..*$
+
+# Bloccare qualsiasi dominio che contiene "analytics":
+.*analytics.*
+
+# Bloccare domini con pattern specifici (telemetria Microsoft):
+(^|\.)telemetry\.microsoft\.com$
+(^|\.)vortex\.data\.microsoft\.com$
+```
+
+I regex vengono compilati all'avvio di FTL e valutati su ogni query - troppi regex complessi possono aumentare la latenza DNS.
+
+### DNSSEC (Domain Name System Security Extensions)
+
+Pi-hole supporta la validazione **DNSSEC**, che verifica l'autenticita' delle risposte DNS tramite firma crittografica.
+
+**Il problema che DNSSEC risolve:** il protocollo DNS e' nato senza autenticazione. Un attaccante (DNS spoofing, cache poisoning) puo' restituire risposte false, reindirizzando `www.banca.it` verso un server malevolo. DNSSEC aggiunge firme digitali alle risposte DNS che il resolver puo' verificare.
+
+**Come funziona:**
+
+1. Il dominio (es. `example.com`) firma i suoi record DNS con una chiave privata
+2. La chiave pubblica corrispondente e' pubblicata nel DNS stesso (record DNSKEY)
+3. Il resolver verifica la firma: se corrisponde, la risposta e' autentica; se non corrisponde, la risposta viene scartata
+
+Per abilitare DNSSEC in Pi-hole: **Settings → DNS → Use DNSSEC** (checkbox).
+
+> **Nota:** DNSSEC aggiunge una leggera latenza alla prima query (verifica della chain of trust). Se il DNS upstream non supporta DNSSEC (o il dominio non e' firmato), la query passa normalmente senza validazione - DNSSEC non rompe i domini non firmati.
 
 ---
 
