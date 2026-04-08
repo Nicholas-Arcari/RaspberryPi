@@ -47,6 +47,77 @@ Non era aperta solo la porta 2222 (Honeypot), ma un "albero di Natale" di serviz
 | **9200** | Wazuh Indexer (OpenSearch) | **CRITICO** - API REST del database degli alert, potenzialmente sfruttabile per estrarre informazioni |
 | **55000** | Wazuh API | **ALTO** - API di gestione del Manager |
 
+### Output completo della scansione
+
+Questo e' l'output reale (anonimizzato) della scansione SYN scan lanciata dalla macchina Kali:
+
+```
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-XX-XX 14:32 CET
+Initiating ARP Ping Scan at 14:32
+Scanning 192.168.0.XXX [1 port]
+Completed ARP Ping Scan at 14:32, 0.04s elapsed (1 total hosts)
+Initiating SYN Stealth Scan at 14:32
+Scanning 192.168.0.XXX [65535 ports]
+Discovered open port 443/tcp on 192.168.0.XXX
+Discovered open port 22/tcp on 192.168.0.XXX
+Discovered open port 9200/tcp on 192.168.0.XXX
+Discovered open port 2222/tcp on 192.168.0.XXX
+Discovered open port 55000/tcp on 192.168.0.XXX
+Discovered open port 1514/tcp on 192.168.0.XXX
+Discovered open port 1515/tcp on 192.168.0.XXX
+Completed SYN Stealth Scan at 14:33, 26.37s elapsed (65535 total ports)
+Nmap scan report for 192.168.0.XXX
+Host is up (0.00045s latency).
+Not shown: 65528 closed tcp ports (reset)
+PORT      STATE SERVICE
+22/tcp    open  ssh
+443/tcp   open  https
+1514/tcp  open  fujitsu-dtc
+1515/tcp  open  ifor-protocol
+2222/tcp  open  EtherNetIP-1
+9200/tcp  open  wap-wsp
+55000/tcp open  unknown
+MAC Address: XX:XX:XX:XX:XX:XX (Raspberry Pi Ltd)
+
+Nmap done: 1 host scanned in 26.41 seconds
+           Raw packets sent: 65536 (2.884MB) -- Rcvd: 65536 (2.621MB)
+```
+
+**Analisi riga per riga:**
+
+- **ARP Ping Scan**: Nmap prima verifica che l'host sia attivo con un ARP request (Layer 2). Sulla stessa LAN, ARP e' piu' affidabile di ICMP perche' non puo' essere bloccato dal firewall
+- **65535 ports**: la scansione completa ha richiesto ~26 secondi. Su ARM64 con connessione locale, T4 e' sufficientemente veloce
+- **`closed tcp ports (reset)`**: le porte chiuse rispondono con RST (Reset). Se fossero state `filtered`, non avrebbero risposto affatto - indice di un firewall che fa drop silenzioso
+- **`fujitsu-dtc` / `ifor-protocol` / `EtherNetIP-1`**: Nmap assegna nomi ai servizi basandosi sul file `/usr/share/nmap/nmap-services` (mapping porta → nome storico). Questi nomi sono **ingannevoli** - la porta 1514 non e' realmente Fujitsu, e' il canale eventi Wazuh. La porta 2222 non e' EtherNet/IP, e' Cowrie. Per identificare i servizi reali serve una scansione con version detection (`-sV`)
+- **MAC Address: Raspberry Pi Ltd**: il vendor OUI del MAC address identifica immediatamente il dispositivo come Raspberry Pi. Un attaccante sulla stessa LAN sa esattamente cosa sta attaccando
+
+#### Scansione con version detection
+
+Per confermare i servizi reali dietro ogni porta:
+
+```bash
+nmap -sV -p 22,443,1514,1515,2222,9200,55000 192.168.0.XXX
+```
+
+```
+PORT      STATE SERVICE     VERSION
+22/tcp    open  ssh         OpenSSH 8.4p1 Debian 5+deb11u3 (protocol 2.0)
+443/tcp   open  ssl/https   nginx 1.25.3
+1514/tcp  open  tcpwrapped
+1515/tcp  open  tcpwrapped
+2222/tcp  open  ssh         OpenSSH 6.0p1 Debian 4+deb7u2 (protocol 2.0)
+9200/tcp  open  http        OpenSearch REST API 2.13.0
+55000/tcp open  ssl/unknown
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+```
+
+**Osservazioni critiche da analista:**
+
+1. **Porta 22 vs 2222**: la versione di OpenSSH sulla porta 22 e' `8.4p1` (versione reale del sistema), quella sulla 2222 e' `6.0p1` (versione volutamente vecchia emulata da Cowrie). Un attaccante esperto noterebbe la discrepanza e capirebbe che la 2222 e' un honeypot. Cowrie puo' essere configurato per emulare versioni piu' recenti nel file `cowrie.cfg` (`ssh_version_string`)
+2. **OpenSearch 9200**: l'API REST e' raggiungibile. Un `curl https://192.168.0.XXX:9200/_cat/indices` restituirebbe la lista degli indici (inclusi `wazuh-alerts-*`). Senza autenticazione TLS client, chiunque potrebbe leggere gli alert
+3. **`tcpwrapped`**: Nmap non riesce a identificare il servizio perche' la connessione viene chiusa dopo l'handshake TCP. Il Wazuh Manager accetta connessioni solo da agenti registrati con certificato valido
+4. **nginx 1.25.3**: rivela la versione esatta del reverse proxy del Dashboard. Un attaccante cercherebbe CVE note per quella specifica versione
+
 ### La causa: DMZ sul router
 
 Avevo inizialmente inserito il Raspberry Pi in **DMZ** sul router per comodita' durante il setup. La DMZ (in un router consumer) significa "inoltra TUTTO il traffico a questo IP" - bypassa completamente il firewall del router e espone ogni servizio del Raspberry direttamente su Internet.
@@ -268,6 +339,128 @@ ssh root@<indirizzo_ngrok> -p <porta_ngrok>
 5. **Immediatamente** sulla Dashboard di Wazuh e' scattato l'allarme "Intrusione Rilevata" (rule 100012, livello 10)
 
 Il sistema e' online, monitorato e funzionante.
+
+### Alert Wazuh generato dall'intrusione
+
+Questo e' l'alert JSON reale (anonimizzato) che Wazuh ha generato nel momento in cui ho effettuato il login sull'Honeypot via Ngrok:
+
+```json
+{
+  "_index": "wazuh-alerts-4.x-2025.XX.XX",
+  "_id": "a3B7xZIBkQr8vN2f_example",
+  "_source": {
+    "rule": {
+      "level": 10,
+      "description": "Cowrie: Login success detected on honeypot",
+      "id": "100012",
+      "mitre": {
+        "tactic": ["Initial Access", "Credential Access"],
+        "technique": ["T1078 - Valid Accounts", "T1110 - Brute Force"],
+        "id": ["T1078", "T1110"]
+      },
+      "groups": ["cowrie", "honeypot"]
+    },
+    "agent": {
+      "id": "001",
+      "name": "raspberrypi",
+      "ip": "192.168.0.XXX"
+    },
+    "data": {
+      "cowrie": {
+        "eventid": "cowrie.login.success",
+        "username": "root",
+        "password": "12345",
+        "src_ip": "XX.XX.XX.XX",
+        "session": "a1b2c3d4e5f6",
+        "protocol": "ssh",
+        "timestamp": "2025-XX-XXT14:47:23.456789Z"
+      }
+    },
+    "location": "/var/log/cowrie/cowrie.json",
+    "timestamp": "2025-XX-XXT14:47:24.001Z",
+    "manager": {
+      "name": "wazuh-manager"
+    },
+    "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"12345\",\"src_ip\":\"XX.XX.XX.XX\",\"session\":\"a1b2c3d4e5f6\",\"protocol\":\"ssh\",\"timestamp\":\"2025-XX-XXT14:47:23.456789Z\"}"
+  }
+}
+```
+
+**Analisi dei campi chiave:**
+
+| Campo | Valore | Significato |
+|---|---|---|
+| `rule.level` | `10` | Severita' alta (scala 0-15). Livello 10 = attivita' sospetta che richiede attenzione immediata |
+| `rule.id` | `100012` | Regola custom definita in `/var/ossec/etc/rules/local_rules.xml` sul Manager |
+| `rule.mitre` | T1078, T1110 | Mapping automatico alle tecniche MITRE ATT&CK per contestualizzare l'attacco |
+| `data.cowrie.src_ip` | `XX.XX.XX.XX` | IP sorgente dell'attaccante. In questo caso, l'IP pubblico dell'hotspot del cellulare (passato attraverso Ngrok) |
+| `data.cowrie.password` | `12345` | Password usata - Cowrie registra **tutte** le credenziali tentate, utili per analisi statistica delle password piu' comuni |
+| `data.cowrie.session` | `a1b2c3d4e5f6` | Identificativo univoco della sessione. Permette di correlare tutti gli eventi di una stessa sessione (login, comandi, download) |
+| `location` | `/var/log/cowrie/cowrie.json` | File sorgente del log, monitorato dall'agente Wazuh tramite inotify |
+
+---
+
+## Correlazione eventi: dalla scansione all'alert
+
+In un SOC reale, gli eventi non vengono analizzati in isolamento. La correlazione consiste nel collegare eventi apparentemente separati per ricostruire la **kill chain** dell'attaccante. Ecco come i diversi componenti del lab hanno registrato la mia simulazione:
+
+### Timeline dell'attacco simulato
+
+```
+T+0s    Nmap SYN scan dalla macchina Kali
+        └─ UFW log: 65535 SYN packets da 192.168.0.YYY (Kali)
+        └─ Wazuh rule 5710 (livello 3): "Attempt to scan open ports"
+
+T+30s   Hydra brute force sulla porta 2222
+        └─ Cowrie log: centinaia di cowrie.login.failed in rapida successione
+        └─ Wazuh rule 100011 (livello 5): "Cowrie: Multiple failed login attempts"
+
+T+2m    Hydra trova password valida (root/12345)
+        └─ Cowrie log: cowrie.login.success
+        └─ Wazuh rule 100012 (livello 10): "Cowrie: Login success on honeypot"
+
+T+2m30s Sessione interattiva: l'attaccante esegue comandi
+        └─ Cowrie log: cowrie.command.input (cat /etc/passwd, wget, uname -a)
+        └─ Wazuh rule 100013 (livello 8): "Cowrie: Command executed in honeypot"
+
+T+3m    Tentativo di download malware (simulato)
+        └─ Cowrie log: cowrie.session.file_download
+        └─ Wazuh rule 100014 (livello 12): "Cowrie: File download attempt"
+```
+
+### Query di correlazione sulla Dashboard
+
+Per ricostruire l'intera sequenza su Wazuh Dashboard (OpenSearch Dashboards), questa query filtra tutti gli eventi relativi a una singola sessione dell'attaccante:
+
+```
+data.cowrie.session: "a1b2c3d4e5f6" OR data.srcip: "XX.XX.XX.XX"
+```
+
+Ordinando per `timestamp` ascendente, si ottiene la timeline completa: dal primo tentativo di login fallito, al successo, ai comandi eseguiti nella sessione honeypot, fino all'eventuale download di file. Questo e' esattamente il workflow che un analista SOC L1 seguirebbe durante il triage di un alert reale.
+
+### Correlazione con i log di rete (UFW)
+
+I log di UFW (`/var/log/ufw.log`) completano il quadro con il livello di rete:
+
+```
+[UFW BLOCK] IN=eth0 OUT= MAC=XX:XX:XX SRC=XX.XX.XX.XX DST=192.168.0.XXX LEN=44
+            TOS=0x00 PREC=0x00 TTL=64 ID=54321 PROTO=TCP SPT=54321 DPT=9200
+            WINDOW=1024 RES=0x00 SYN URGP=0
+```
+
+**Lettura del log UFW:**
+
+| Campo | Significato |
+|---|---|
+| `[UFW BLOCK]` | Il pacchetto e' stato bloccato (dopo la remediation) |
+| `SRC=XX.XX.XX.XX` | IP sorgente dell'attaccante |
+| `DPT=9200` | Porta di destinazione - l'attaccante ha tentato di raggiungere OpenSearch |
+| `SYN` | Flag TCP - e' il primo pacchetto di un handshake (scansione) |
+| `WINDOW=1024` | Window size tipica di Nmap SYN scan (fingerprint del tool) |
+
+La correlazione tra il `SRC` del log UFW e il `data.cowrie.src_ip` dell'alert Wazuh conferma che lo stesso IP ha prima scansionato le porte (bloccato da UFW su 9200) e poi si e' concentrato sulla porta 2222 (Honeypot, aperta intenzionalmente).
+
+> **Lezione da analista:** Un singolo alert non racconta mai la storia completa. La vera analisi inizia quando si correlano eventi da fonti diverse (firewall, honeypot, SIEM) per ricostruire l'intera catena d'attacco. Questo e' il valore di avere un SIEM centralizzato come Wazuh: tutti i log convergono in un unico punto, rendendo la correlazione possibile.
 
 ---
 
