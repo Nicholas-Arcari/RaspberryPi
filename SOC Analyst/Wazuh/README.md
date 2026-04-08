@@ -102,6 +102,122 @@ Questo installa i tre componenti principali direttamente sull'host (non in conta
 
 Wazuh usa comunicazione TLS/SSL tra tutti i componenti. In un setup All-in-One (tutto sullo stesso host), i certificati sono auto-firmati (self-signed), ma comunque necessari per la cifratura del trasporto.
 
+#### Come funziona TLS e perche' serve a Wazuh
+
+**TLS (Transport Layer Security)** e' il protocollo che cifra la comunicazione tra due endpoint. Quando Filebeat invia alert all'Indexer, il traffico passa su HTTPS (HTTP + TLS). Senza TLS, gli alert (che contengono IP, username, password honeypot) transiterebbero in chiaro sulla rete.
+
+L'handshake TLS 1.2 (usato da Wazuh) si svolge cosi':
+
+```
+Filebeat (client)                                    Indexer (server)
+       │                                                    │
+       ├── ClientHello ───────────────────────────────────►│
+       │   (versione TLS, cipher suite supportate,          │
+       │    random_client)                                  │
+       │                                                    │
+       │◄── ServerHello ──────────────────────────────────┤
+       │   (cipher suite scelta, random_server)             │
+       │                                                    │
+       │◄── Certificate ──────────────────────────────────┤
+       │   (certificato X.509 del server: indexer.pem)      │
+       │                                                    │
+       │◄── CertificateRequest ───────────────────────────┤
+       │   (richiesta del certificato CLIENT: mutual TLS)   │
+       │                                                    │
+       │   Il client VERIFICA il certificato del server:    │
+       │   1. La firma e' valida? (verificata con root-ca)  │
+       │   2. Il CN/SAN corrisponde all'hostname?           │
+       │   3. Il certificato e' scaduto?                    │
+       │   4. E' nella CRL (revocation list)?               │
+       │                                                    │
+       │── Certificate (filebeat.pem) ────────────────────►│
+       │── ClientKeyExchange (pre-master secret cifrato    │
+       │   con la chiave pubblica del server) ────────────►│
+       │── CertificateVerify (firma del client) ──────────►│
+       │                                                    │
+       │   Entrambi derivano il master secret:              │
+       │   master = PRF(pre_master, random_c, random_s)     │
+       │   → 4 chiavi simmetriche (cifratura + MAC,         │
+       │     una per direzione)                             │
+       │                                                    │
+       │── ChangeCipherSpec ──────────────────────────────►│
+       │◄── ChangeCipherSpec ─────────────────────────────┤
+       │                                                    │
+       │◄═══ Traffico cifrato (alert JSON via HTTPS) ═════►│
+```
+
+#### Mutual TLS (mTLS): autenticazione bidirezionale
+
+In un TLS "normale" (es. visitare https://google.com), solo il **server** presenta il certificato. Il client verifica che il server sia chi dice di essere, ma il server non verifica il client.
+
+In Wazuh, si usa **mutual TLS (mTLS)**: anche il **client** (Filebeat, Agent) deve presentare un certificato firmato dalla stessa CA. Questo garantisce che:
+
+- Solo Filebeat con un certificato valido puo' inviare dati all'Indexer
+- Solo agenti con certificato valido possono comunicare con il Manager
+- Un attaccante che intercetta il traffico non puo' iniettare alert fasulli (non ha il certificato)
+
+#### Il certificato X.509: cosa contiene
+
+Puoi ispezionare un certificato generato da Wazuh:
+
+```bash
+openssl x509 -in /etc/wazuh-indexer/certs/indexer.pem -text -noout
+```
+
+Output (campi chiave):
+
+```
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 1234567890abcdef
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: CN = Wazuh Root CA            ← Chi ha firmato (la nostra CA self-signed)
+        Validity
+            Not Before: Jan  1 00:00:00 2025 GMT
+            Not After : Jan  1 00:00:00 2035 GMT  ← Scadenza (10 anni di default)
+        Subject: CN = node-1                   ← Identita' del certificato
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+            RSA Public-Key: (2048 bit)
+        X509v3 extensions:
+            X509v3 Subject Alternative Name:   ← SAN: IP/hostname validi
+                IP Address:127.0.0.1
+```
+
+| Campo | Significato | Perche' conta |
+|---|---|---|
+| `Issuer` | La CA che ha firmato il certificato | Il client verifica che l'Issuer sia nel suo trust store (`root-ca.pem`) |
+| `Subject (CN)` | Common Name - identita' del server | Deve corrispondere al nome con cui il client si connette |
+| `SAN` | Subject Alternative Name - IP/hostname alternativi | Standard moderno: TLS verifica il SAN, non il CN. Se manca l'IP `127.0.0.1`, la connessione fallisce con "certificate verify failed" |
+| `Validity` | Periodo di validita' | Un certificato scaduto viene rifiutato. Causa comune di "Wazuh non parte dopo un anno" |
+| `Serial Number` | Identificativo univoco | Usato per la revocation (CRL/OCSP) |
+
+#### Chain of Trust: come il client "si fida"
+
+```
+[Root CA] (root-ca.pem / root-ca-key.pem)
+    │
+    │  firma (con root-ca-key.pem)
+    ▼
+[Certificato Indexer] (indexer.pem)  ← contiene la firma della Root CA
+[Certificato Manager] (server.pem)  ← contiene la firma della Root CA
+[Certificato Dashboard] (dashboard.pem)
+[Certificato Filebeat] (filebeat.pem)
+```
+
+Quando Filebeat si connette all'Indexer:
+1. L'Indexer presenta `indexer.pem`
+2. Filebeat legge il campo `Issuer: CN = Wazuh Root CA`
+3. Filebeat cerca `Wazuh Root CA` nel suo trust store (`/etc/filebeat/certs/root-ca.pem`)
+4. Verifica che la firma nel certificato sia stata prodotta dalla chiave privata della Root CA
+5. Se la verifica passa → connessione accettata
+6. Se fallisce → "certificate verify failed" e connessione rifiutata
+
+> **Perche' self-signed va bene nel nostro caso:** In un ambiente pubblico (siti web), i certificati devono essere firmati da una CA riconosciuta (Let's Encrypt, DigiCert) perche' i browser hanno una lista pre-installata di CA fidate. Nel nostro lab, tutti i componenti sono sullo stesso host e controlliamo la distribuzione dei certificati - una CA self-signed e' sufficiente e non introduce rischi aggiuntivi.
+
+**Errore comune:** Se dopo aver rigenerato i certificati un componente non parte, verificare che il `root-ca.pem` sia stato copiato in **tutte** le directory (`/etc/wazuh-indexer/certs/`, `/etc/filebeat/certs/`, etc.). Un solo componente con la vecchia CA cautera' errori TLS nella pipeline.
+
 #### Download del tool di generazione certificati
 
 ```bash
@@ -372,6 +488,178 @@ Se mostra `ERROR`, verificare certificati, password e stato dell'Indexer.
 **Causa:** I certificati erano stati copiati con i permessi dell'utente corrente. Il servizio `wazuh-indexer` gira come utente `wazuh-indexer` e non poteva leggere file di proprieta' `root`.
 
 **Soluzione:** `chown` corretto per ogni componente e permessi restrittivi (`chmod 400` sui file, `chmod 500` sulle directory).
+
+---
+
+## Deep Dive: ossec.conf - il cuore della configurazione Wazuh
+
+Il file `/var/ossec/etc/ossec.conf` controlla il comportamento dell'intero agente/manager. Ecco le sezioni piu' importanti con spiegazione dei parametri.
+
+### Sezione `<syscheck>` - File Integrity Monitoring
+
+```xml
+<syscheck>
+  <!-- Intervallo tra scan completi (in secondi). 43200 = 12 ore -->
+  <frequency>43200</frequency>
+
+  <!-- Calcola hash SHA-256 per ogni file monitorato -->
+  <alert_new_files>yes</alert_new_files>
+
+  <!-- Directory da monitorare. check_all abilita tutti i controlli -->
+  <directories check_all="yes" realtime="yes">/etc</directories>
+  <directories check_all="yes" realtime="yes">/usr/bin</directories>
+  <directories check_all="yes" realtime="yes">/usr/sbin</directories>
+  <directories check_all="yes">/boot</directories>
+
+  <!-- File e directory da IGNORARE (troppo rumorosi) -->
+  <ignore>/etc/mtab</ignore>
+  <ignore>/etc/resolv.conf</ignore>
+  <ignore type="sregex">.log$</ignore>
+
+  <!-- Monitora cambiamenti di: hash, permessi, owner, size, timestamp -->
+  <check_sha256>yes</check_sha256>
+  <check_perm>yes</check_perm>
+  <check_owner>yes</check_owner>
+  <check_size>yes</check_size>
+  <check_mtime>yes</check_mtime>
+</syscheck>
+```
+
+**Parametri chiave:**
+
+| Parametro | Significato | Impatto |
+|---|---|---|
+| `frequency` | Intervallo tra scan completi | Valori bassi = piu' CPU, rilevamento piu' rapido |
+| `realtime="yes"` | Usa `inotify` del kernel per rilevamento istantaneo | Non aspetta lo scan periodico, ma genera piu' eventi |
+| `check_sha256` | Calcola hash SHA-256 di ogni file | Se l'hash cambia, il file e' stato modificato - rileva anche modifiche che non cambiano timestamp |
+| `alert_new_files` | Genera alert quando un file nuovo appare | Rileva dropper di malware che creano file in `/usr/bin` |
+| `ignore` | Esclude file/pattern dal monitoraggio | Essenziale per ridurre i falsi positivi (log che ruotano, file temporanei) |
+
+### Sezione `<rootcheck>` - Rilevamento rootkit
+
+```xml
+<rootcheck>
+  <disabled>no</disabled>
+  <frequency>43200</frequency>
+
+  <!-- Database di signature rootkit noti -->
+  <rootkit_files>/var/ossec/etc/shared/rootkit_files.txt</rootkit_files>
+  <rootkit_trojans>/var/ossec/etc/shared/rootkit_trojans.txt</rootkit_trojans>
+
+  <!-- Controlla anomalie nel filesystem (/dev, /proc) -->
+  <check_dev>yes</check_dev>
+  <check_sys>yes</check_sys>
+  <check_pids>yes</check_pids>
+  <check_ports>yes</check_ports>
+
+  <!-- Controlla file nascosti -->
+  <check_unixaudit>yes</check_unixaudit>
+</rootcheck>
+```
+
+`rootcheck` cerca:
+- **File noti di rootkit** (confronto con database di signature)
+- **Processi nascosti**: confronta l'output di `/proc` con quello di `ps` - se un PID esiste in `/proc` ma non in `ps`, potrebbe essere un rootkit che nasconde processi
+- **Porte nascoste**: confronta `ss`/`netstat` con `/proc/net/tcp` per trovare porte aperte non visibili
+- **File con permessi anomali** in `/dev` (un classico nascondiglio per rootkit)
+
+### Sezione `<localfile>` - Sorgenti di log
+
+```xml
+<!-- Log di autenticazione (SSH, sudo, su) -->
+<localfile>
+  <log_format>syslog</log_format>
+  <location>/var/log/auth.log</location>
+</localfile>
+
+<!-- Log di sistema generico -->
+<localfile>
+  <log_format>syslog</log_format>
+  <location>/var/log/syslog</location>
+</localfile>
+
+<!-- Log Cowrie honeypot (formato JSON) -->
+<localfile>
+  <log_format>json</log_format>
+  <location>/home/pi/cowrie/var/log/cowrie/cowrie.json</location>
+</localfile>
+
+<!-- Log Docker container (se montati sull'host) -->
+<localfile>
+  <log_format>syslog</log_format>
+  <location>/var/log/docker.log</location>
+</localfile>
+```
+
+**`log_format` determina il decoder usato:**
+- `syslog`: decoder standard che estrae timestamp, hostname, program, message
+- `json`: decoder JSON che estrae automaticamente tutti i campi come variabili
+- `audit`: per log di `auditd` (formato key=value)
+- `multi-line`: per log che si estendono su piu' righe
+
+### Struttura di un alert nell'Indexer (OpenSearch)
+
+Ogni alert viene indicizzato in un indice con naming pattern `wazuh-alerts-4.x-YYYY.MM.DD`. Ecco la struttura completa di un documento nell'indice:
+
+```json
+{
+  "_index": "wazuh-alerts-4.x-2026.03.15",
+  "_id": "a1b2c3d4e5f6",
+  "_source": {
+    "timestamp": "2026-03-15T14:32:07.892+0000",
+    "rule": {
+      "level": 10,
+      "description": "Cowrie: INTRUSIONE RIUSCITA",
+      "id": "100012",
+      "mitre": {
+        "id": ["T1078"],
+        "tactic": ["Initial Access"],
+        "technique": ["Valid Accounts"]
+      },
+      "firedtimes": 3,
+      "mail": false,
+      "groups": ["local", "syslog", "sshd", "authentication_success"],
+      "pci_dss": ["10.2.5"],
+      "gdpr": ["IV_32.2"]
+    },
+    "agent": {
+      "id": "000",
+      "name": "raspberrypi",
+      "ip": "127.0.0.1"
+    },
+    "manager": {
+      "name": "raspberrypi"
+    },
+    "data": {
+      "eventid": "cowrie.login.success",
+      "username": "root",
+      "password": "12345",
+      "src_ip": "203.0.113.45",
+      "src_port": "48291",
+      "dst_ip": "192.168.0.102",
+      "dst_port": "2222",
+      "session": "a8f2e1c4b5d",
+      "protocol": "ssh"
+    },
+    "decoder": {
+      "name": "json"
+    },
+    "location": "/home/pi/cowrie/var/log/cowrie/cowrie.json"
+  }
+}
+```
+
+**Campi utili per il threat hunting sulla Dashboard:**
+
+| Campo | Query Wazuh Dashboard | Cosa trovi |
+|---|---|---|
+| `rule.id` | `rule.id: 100012` | Tutte le intrusioni nell'honeypot |
+| `rule.level` | `rule.level >= 10` | Tutti gli alert critici |
+| `data.src_ip` | `data.src_ip: 203.0.113.45` | Tutti gli eventi da un IP specifico |
+| `rule.mitre.id` | `rule.mitre.id: T1078` | Tutti gli eventi mappati a una tecnica MITRE |
+| `rule.pci_dss` | `rule.pci_dss: 10.2.5` | Tutti gli eventi rilevanti per PCI DSS compliance |
+| `agent.name` | `agent.name: raspberrypi` | Tutti gli eventi da un agente specifico |
+| `rule.firedtimes` | ordina per `rule.firedtimes` desc | Regole che si attivano piu' spesso (possibile attacco in corso) |
 
 ---
 
