@@ -31,7 +31,7 @@ clone(
 );
 ```
 
-Ogni flag crea un **namespace** — una "bolla" di isolamento per un tipo specifico di risorsa:
+Ogni flag crea un **namespace** - una "bolla" di isolamento per un tipo specifico di risorsa:
 
 | Flag | Namespace | Cosa isola | Effetto pratico |
 |---|---|---|---|
@@ -96,9 +96,9 @@ root     12345  0.1  2.3 1234567 45678 ?  Ssl  14:00   0:05 /portainer
 
 Lo stesso processo ha PID **12345** sull'host. Il kernel mantiene una **mappatura PID** per ogni namespace: il processo ha un PID nel namespace del container (1) e un PID diverso nel namespace dell'host (12345).
 
-**Implicazione di sicurezza:** Un processo nel container non puo' inviare segnali (kill, SIGTERM) a processi fuori dal suo PID namespace — semplicemente non li vede. Se il processo con PID 1 nel container muore, il kernel termina tutti gli altri processi in quel namespace (behavior identico all'init dell'host).
+**Implicazione di sicurezza:** Un processo nel container non puo' inviare segnali (kill, SIGTERM) a processi fuori dal suo PID namespace - semplicemente non li vede. Se il processo con PID 1 nel container muore, il kernel termina tutti gli altri processi in quel namespace (behavior identico all'init dell'host).
 
-### Cgroups v2: limitare le risorse — verifica pratica
+### Cgroups v2: limitare le risorse - verifica pratica
 
 Mentre i namespace isolano la **visibilita'**, i cgroups limitano il **consumo**. Su Debian Bookworm (Raspberry Pi OS), Docker usa **cgroups v2** (unified hierarchy).
 
@@ -416,7 +416,7 @@ docker inspect <nome_container>
 
 ## Deep Dive: Sicurezza dei Container
 
-Docker non e' sicuro "out of the box". I container condividono il kernel con l'host — un exploit kernel dentro un container = compromissione dell'host. Ecco i meccanismi di difesa attivi di default e come verificarli.
+Docker non e' sicuro "out of the box". I container condividono il kernel con l'host - un exploit kernel dentro un container = compromissione dell'host. Ecco i meccanismi di difesa attivi di default e come verificarli.
 
 ### Storage Driver: overlay2
 
@@ -440,8 +440,8 @@ Image Layer 1 (read-only)        ← Layer base (es. debian:bookworm)
 
 Overlay2 sovrappone (overlay) i layer con un meccanismo copy-on-write:
 - Quando un container legge un file, overlay2 cerca il file partendo dal layer piu' alto verso il basso
-- Quando un container **modifica** un file, overlay2 copia il file nel layer scrivibile (upperdir) e applica la modifica li' — il layer originale resta intatto
-- Quando un container viene rimosso, solo il layer scrivibile viene eliminato — i layer dell'immagine restano condivisi
+- Quando un container **modifica** un file, overlay2 copia il file nel layer scrivibile (upperdir) e applica la modifica li' - il layer originale resta intatto
+- Quando un container viene rimosso, solo il layer scrivibile viene eliminato - i layer dell'immagine restano condivisi
 
 Su disco, i layer sono in `/var/lib/docker/overlay2/`. Puoi verificare lo spazio usato:
 
@@ -525,9 +525,9 @@ Capabilities **non** concesse (rilevanti per sicurezza):
 
 | Capability | Perche' non concessa |
 |---|---|
-| `SYS_ADMIN` | Troppo ampia — equivale quasi a root |
+| `SYS_ADMIN` | Troppo ampia - equivale quasi a root |
 | `NET_ADMIN` | Modifica interfacce di rete dell'host |
-| `SYS_PTRACE` | Debug/trace di processi — usabile per escape |
+| `SYS_PTRACE` | Debug/trace di processi - usabile per escape |
 | `SYS_MODULE` | Caricamento moduli kernel |
 
 > **Nei nostri container:** Pi-hole e WireGuard richiedono `NET_ADMIN` (per gestire interfacce di rete e regole iptables). WireGuard richiede anche `SYS_MODULE` (per caricare il modulo kernel WireGuard). Queste eccezioni sono documentate nei rispettivi Docker Compose con `cap_add`. Non aggiungere capabilities non necessarie.
