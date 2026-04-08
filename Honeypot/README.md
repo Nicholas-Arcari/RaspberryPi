@@ -233,7 +233,148 @@ Le regole di default di Wazuh non coprono gli eventi specifici di Cowrie. Ho dov
 
 **Tag PCI DSS:** `pci_dss_10.2.4` e `pci_dss_10.2.5` mappano i requisiti PCI DSS per il logging degli accessi falliti e riusciti. Utile se il progetto viene presentato in contesto compliance.
 
-### Validazione delle regole
+### Esempio reale di log JSON Cowrie
+
+Ogni evento scritto da Cowrie in `cowrie.json` ha questa struttura. Ecco un login riuscito:
+
+```json
+{
+  "eventid": "cowrie.login.success",
+  "username": "root",
+  "password": "12345",
+  "message": "login attempt [root/12345] succeeded",
+  "sensor": "cowrie-nas",
+  "timestamp": "2026-03-15T14:32:07.892451Z",
+  "src_ip": "203.0.113.45",
+  "src_port": 48291,
+  "dst_ip": "192.168.0.102",
+  "dst_port": 2222,
+  "session": "a]8f2e1c4b5d",
+  "protocol": "ssh",
+  "system": "SSHTransport,1,203.0.113.45"
+}
+```
+
+Spiegazione dei campi chiave:
+
+| Campo | Significato | Valore per threat hunting |
+|---|---|---|
+| `eventid` | Tipo di evento Cowrie | Discriminatore per le regole Wazuh (`login.success`, `login.failed`, `command.input`) |
+| `username` / `password` | Credenziali provate dall'attaccante | Pattern analysis: se prova `admin/admin` e' un bot; se prova credenziali specifiche potrebbe essere targeted |
+| `src_ip` | IP dell'attaccante | Correlazione con altri eventi: lo stesso IP ha provato anche la porta 22 reale? |
+| `src_port` | Porta sorgente (effimera) | Porte sequenziali suggeriscono uno scanner automatizzato |
+| `session` | ID univoco della sessione | Permette di ricostruire l'intera sessione dell'attaccante (tutti i comandi) |
+| `protocol` | SSH o Telnet | Telnet e' un segnale di bot molto vecchi o IoT malware (Mirai-like) |
+
+Ed ecco un evento di esecuzione comando post-intrusione:
+
+```json
+{
+  "eventid": "cowrie.command.input",
+  "input": "cat /etc/shadow",
+  "message": "CMD: cat /etc/shadow",
+  "sensor": "cowrie-nas",
+  "timestamp": "2026-03-15T14:32:45.123456Z",
+  "src_ip": "203.0.113.45",
+  "session": "a]8f2e1c4b5d"
+}
+```
+
+Il campo `input` contiene il comando esatto digitato. Comandi come `cat /etc/shadow`, `wget`, `curl`, `chmod +x` sono indicatori di post-exploitation attiva.
+
+---
+
+## Walk-through: dalla riga di log all'alert sulla Dashboard
+
+Ecco il percorso completo di un evento, dal momento in cui Cowrie lo scrive fino a quando appare come alert:
+
+### Fase 1: Cowrie scrive il log
+
+```
+Cowrie → /home/pi/cowrie/var/log/cowrie/cowrie.json
+         (una nuova riga JSON per ogni evento)
+```
+
+### Fase 2: Wazuh Agent legge il file
+
+La direttiva in `ossec.conf` dice all'agente di monitorare quel file:
+
+```xml
+<localfile>
+  <log_format>json</log_format>
+  <location>/home/pi/cowrie/var/log/cowrie/cowrie.json</location>
+</localfile>
+```
+
+L'agente fa `inotify` (o polling) sul file. Quando una nuova riga appare, la legge e la invia al Manager sulla porta **1514/TCP**, cifrata con il protocollo AES di Wazuh.
+
+### Fase 3: il Decoder JSON del Manager
+
+Il Manager riceve l'evento grezzo. Il decoder `json` (built-in) identifica che il formato e' JSON e estrae automaticamente ogni campo come variabile:
+
+```
+Evento grezzo: {"eventid":"cowrie.login.success","username":"root",...}
+                              ↓ decoder JSON
+Campi estratti:
+  eventid    = "cowrie.login.success"
+  username   = "root"
+  password   = "12345"
+  src_ip     = "203.0.113.45"
+  ...
+```
+
+I campi estratti diventano disponibili per il **rule engine**.
+
+### Fase 4: il Rule Engine confronta con le regole
+
+Il motore valuta le regole nell'ordine di `rule id`. Il campo `eventid` fa match con la regola padre 100010 (contiene `cowrie.`), poi la regola figlia 100012 verifica `eventid == cowrie.login.success`:
+
+```
+Regola 100010 (level 3): eventid match "^cowrie\." → MATCH (parent)
+Regola 100012 (level 10): if_sid 100010 AND eventid == "cowrie.login.success" → MATCH
+→ Genera alert con level 10
+```
+
+### Fase 5: Alert generato
+
+Il Manager scrive l'alert in `/var/ossec/logs/alerts/alerts.json`:
+
+```json
+{
+  "timestamp": "2026-03-15T14:32:07.892+0000",
+  "rule": {
+    "level": 10,
+    "description": "Cowrie: INTRUSIONE RIUSCITA - Un attaccante e' entrato nell'Honeypot",
+    "id": "100012",
+    "mitre": {
+      "id": ["T1078"],
+      "tactic": ["Defense Evasion", "Persistence", "Privilege Escalation", "Initial Access"],
+      "technique": ["Valid Accounts"]
+    },
+    "groups": ["authentication_success", "pci_dss_10.2.5"]
+  },
+  "agent": {
+    "id": "000",
+    "name": "raspberrypi"
+  },
+  "data": {
+    "eventid": "cowrie.login.success",
+    "username": "root",
+    "password": "12345",
+    "src_ip": "203.0.113.45",
+    "src_port": "48291",
+    "dst_port": "2222",
+    "session": "a]8f2e1c4b5d"
+  },
+  "location": "/home/pi/cowrie/var/log/cowrie/cowrie.json"
+}
+```
+
+### Fase 6: Filebeat → Indexer → Dashboard
+
+Filebeat legge `alerts.json`, lo invia all'Indexer (OpenSearch) che lo indicizza in `wazuh-alerts-4.x-2026.03.15`. La Dashboard lo rende visibile nella sezione **Threat Hunting** dove puoi filtrare per `rule.id: 100012` o `data.src_ip: 203.0.113.45`.
+
+### Validazione delle regole con wazuh-logtest
 
 Prima di applicare le regole in produzione, testarle con `wazuh-logtest`:
 
@@ -241,7 +382,20 @@ Prima di applicare le regole in produzione, testarle con `wazuh-logtest`:
 sudo /var/ossec/bin/wazuh-logtest
 ```
 
-Incollare un esempio di log JSON di Cowrie e verificare che la regola corretta faccia match.
+Incollare una riga JSON di Cowrie e verificare che la regola corretta faccia match. Output atteso:
+
+```
+**Phase 1: Completed pre-decoding.
+**Phase 2: Completed decoding.
+       name: 'json'
+**Phase 3: Completed filtering (rules).
+       id: '100012'
+       level: '10'
+       description: 'Cowrie: INTRUSIONE RIUSCITA - Un attaccante e' entrato nell'Honeypot'
+       groups: '['local', 'syslog', 'sshd', 'authentication_success', 'pci_dss_10.2.5']'
+```
+
+Se la Phase 3 non mostra la regola attesa, verificare che il campo `eventid` nel JSON corrisponda esattamente a quello nella regola.
 
 ---
 
