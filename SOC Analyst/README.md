@@ -191,6 +191,88 @@ Invece di generare un alert per ogni singolo evento, raggruppare eventi correlat
 
 ---
 
+## Perche' Wazuh e non Splunk (o altri SIEM)
+
+La scelta del SIEM e' una decisione architetturale critica. Wazuh non e' stato scelto "perche' e' gratis" — e' stato scelto per ragioni tecniche specifiche al nostro caso d'uso.
+
+### Confronto architetturale
+
+| Aspetto | Wazuh | Splunk Enterprise | Splunk Free | Elastic SIEM |
+|---|---|---|---|---|
+| **Licenza** | Open source (GPLv2) | Commerciale (~$2000/GB/anno) | Gratuito, 500MB/giorno | Open source (SSPL) |
+| **Costo per il nostro lab** | $0 | ~$15.000+/anno (impensabile) | $0 ma molto limitato | $0 |
+| **ARM64 (Raspberry Pi)** | Pacchetti .deb ARM64 disponibili | **NON disponibile** su ARM | **NON disponibile** su ARM | Pacchetti ARM64 disponibili |
+| **Agent integrato** | Si (FIM, rootcheck, vulnerability detection) | Universal Forwarder (solo log shipping) | Universal Forwarder | Elastic Agent |
+| **IDS/IPS integrato** | Parziale (log analysis rules) | No (richiede add-on) | No | No |
+| **Active Response** | Si (blocco IP automatico) | No nativo (richiede SOAR) | No | No nativo |
+| **Compliance** | PCI DSS, GDPR, HIPAA, CIS | Si (con add-on a pagamento) | No | Parziale |
+| **Storage backend** | OpenSearch (fork Elasticsearch) | Proprietario (Splunk indexes) | Proprietario | Elasticsearch |
+| **Query language** | OpenSearch DSL (JSON) | SPL (Splunk Processing Language) | SPL | KQL / EQL |
+| **Risorse su RPi 5 (8GB)** | ~4-5GB RAM totali | N/A (non gira su ARM) | N/A | ~3-4GB RAM |
+
+### La motivazione reale
+
+1. **ARM64**: Splunk semplicemente non gira su Raspberry Pi. Fine della discussione per il nostro hardware. Se avessimo un server x86_64 con 32GB di RAM, Splunk Enterprise sarebbe una scelta valida
+
+2. **All-in-one**: Wazuh non e' solo un SIEM — e' anche un XDR. L'agent fa FIM, vulnerability detection, rootcheck, log collection e compliance in un unico pacchetto. Con Splunk, dovresti installare separatamente: Universal Forwarder + OSSEC/Tripwire (FIM) + Nessus/OpenVAS (vulnerability) + tool di compliance
+
+3. **Active Response**: Wazuh puo' bloccare un IP automaticamente quando un alert raggiunge una certa soglia. Splunk richiede un SOAR separato (Splunk SOAR, ex Phantom) — un altro prodotto a pagamento
+
+4. **Costo**: Per un home lab educativo, il costo di Splunk e' proibitivo. Wazuh offre il 90% delle funzionalita' a costo zero
+
+### Se volessi migrare a Splunk (su hardware x86_64)
+
+Le modifiche architetturali necessarie:
+
+```
+ATTUALE (Wazuh):
+Agent → Manager :1514 → Filebeat → OpenSearch :9200 → Dashboard :443
+
+SPLUNK:
+Universal Forwarder → Splunk Indexer :9997 → Splunk Search Head :8000
+                                       ↑
+                              Splunk Heavy Forwarder
+                              (parsing e filtering)
+```
+
+| Componente Wazuh | Sostituito da | Configurazione |
+|---|---|---|
+| Wazuh Agent | Splunk Universal Forwarder | `inputs.conf`: monitor dei log, `outputs.conf`: puntamento all'Indexer |
+| Wazuh Manager (decoder + rules) | Splunk Heavy Forwarder + `props.conf`/`transforms.conf` | Regole di parsing (regex per estrarre campi), lookup tables per enrichment |
+| OpenSearch (Indexer) | Splunk Indexer | `indexes.conf`: definizione indici, retention policy, volume di storage |
+| Wazuh Dashboard | Splunk Search Head | Dashboard custom in Simple XML o Dashboard Studio |
+| Filebeat | Non necessario | Il Forwarder invia direttamente all'Indexer |
+| Regole custom (local_rules.xml) | Correlation searches + Notable events | SPL queries schedulati in Enterprise Security |
+| Active Response | Splunk SOAR (Phantom) | Playbook automatici (prodotto separato, a pagamento) |
+
+**File chiave da creare/modificare per Splunk:**
+
+```ini
+# inputs.conf (sul Forwarder - equivale a <localfile> in ossec.conf)
+[monitor:///var/log/auth.log]
+sourcetype = linux_secure
+index = security
+
+[monitor:///var/log/cowrie/cowrie.json]
+sourcetype = cowrie:json
+index = honeypot
+
+# props.conf (parsing - equivale ai decoder Wazuh)
+[cowrie:json]
+KV_MODE = json
+TIME_FORMAT = %Y-%m-%dT%H:%M:%S.%6N%Z
+TIME_PREFIX = "timestamp":"
+
+# savedsearches.conf (correlation - equivale alle regole Wazuh)
+[Honeypot Login Success]
+search = index=honeypot sourcetype=cowrie:json eventid=cowrie.login.success
+alert_threshold = 1
+action.email = 1
+cron_schedule = */5 * * * *
+```
+
+> **Nota per chi studia:** In un colloquio per SOC analyst, saper spiegare le differenze architetturali tra Wazuh e Splunk (e quando usare l'uno o l'altro) e' un punto a favore. Wazuh per lab/PMI con budget limitato e bisogno di agent integrati. Splunk per enterprise con budget, volumi di dati elevati e necessita' di SPL per query complesse.
+
 ## Strumenti
 
 ### Wazuh SIEM/XDR
@@ -211,3 +293,167 @@ La piattaforma principale. Installazione e configurazione dettagliata nella sott
 6. **Documentazione**: annotare l'incidente per future reference
 
 Questo e' il ciclo di lavoro di un analista SOC, scalato per un home lab ma concettualmente identico a quello enterprise.
+
+---
+
+## Incident Response Playbook
+
+Questo playbook definisce **cosa fare concretamente** quando Wazuh genera un alert critico. Segue il framework NIST SP 800-61 (Computer Security Incident Handling Guide), adattato al nostro home lab.
+
+### Le 6 fasi dell'Incident Response
+
+```
+[1] Preparazione → [2] Identificazione → [3] Contenimento → [4] Eradicazione → [5] Recovery → [6] Lessons Learned
+        │                   │                    │                   │                │                │
+   Strumenti pronti    "E' un vero          Limitare il        Rimuovere la      Ripristinare      Cosa migliorare
+   Contatti definiti    incidente?"         danno ORA          causa root        il servizio       per la prossima
+   Playbook scritto                                                                                volta
+```
+
+### Playbook 1: Intrusione Honeypot (alert rule 100012, livello 10)
+
+**Trigger:** Alert Wazuh "Cowrie: Login success detected on honeypot"
+
+**Fase 1 — Identificazione (5 minuti)**
+
+```bash
+# 1. Leggi l'alert sulla Dashboard o dai log
+sudo tail -20 /var/ossec/logs/alerts/alerts.json | python3 -m json.tool | grep -A5 "cowrie"
+
+# 2. Estrai l'IP sorgente dell'attaccante
+# Dalla Dashboard: Threat Hunting → filtro "rule.id: 100012" → campo data.cowrie.src_ip
+
+# 3. Verifica se l'IP e' un bot noto
+# Cerca su https://www.abuseipdb.com/check/<IP>
+# Oppure da terminale:
+curl -s "https://api.abuseipdb.com/api/v2/check?ipAddress=<IP>" \
+  -H "Key: <TUA_API_KEY>" -H "Accept: application/json" | python3 -m json.tool
+```
+
+**Decisione:** L'IP e' un bot automatico (confidence score > 80% su AbuseIPDB) o un attacco mirato (IP mai visto, comandi sofisticati)?
+
+**Fase 2 — Contenimento (10 minuti)**
+
+```bash
+# 4. IMMEDIATO: blocca l'IP sul firewall
+sudo ufw deny from <IP_ATTACCANTE> comment "Honeypot intrusion - $(date +%Y-%m-%d)"
+
+# 5. Verifica che l'attaccante NON abbia raggiunto l'host reale
+# Controlla i log SSH del sistema (porta 22, non 2222)
+grep "<IP_ATTACCANTE>" /var/log/auth.log
+
+# 6. Verifica che non ci siano connessioni attive dall'IP
+ss -tn | grep "<IP_ATTACCANTE>"
+
+# 7. Controlla se il container Cowrie e' ancora integro
+docker inspect cowrie --format '{{.State.Status}}'  # Deve essere "running"
+docker logs cowrie --tail 20                         # Cercare errori anomali
+```
+
+**Fase 3 — Eradicazione (15 minuti)**
+
+```bash
+# 8. Analizza la sessione completa sulla Dashboard
+#    Filtro: data.cowrie.src_ip: "<IP_ATTACCANTE>"
+#    Ordina per timestamp crescente
+#    Cerca: comandi eseguiti, file scaricati, tentativi di escape
+
+# 9. Se l'attaccante ha scaricato file nel honeypot, catturali per analisi
+docker exec cowrie ls -la /home/cowrie/cowrie-git/var/lib/cowrie/downloads/
+# I file scaricati dall'attaccante sono salvati qui con hash SHA-256 come nome
+
+# 10. Se sospetti container escape (eventi anomali nei log dell'host):
+# Controlla processi sospetti
+ps auxf | grep -v grep | grep -E "(nc|ncat|bash -i|python.*socket)"
+# Controlla connessioni di rete anomale
+ss -tlnp | grep -v -E "(sshd|docker|wazuh|filebeat)"
+# Controlla file modificati di recente in directory critiche
+find /etc /usr/bin /usr/sbin -mmin -30 -ls 2>/dev/null
+```
+
+**Fase 4 — Recovery**
+
+```bash
+# 11. Se il container e' compromesso, ricrealo da zero (i dati sono nel volume)
+docker stop cowrie && docker rm cowrie
+docker pull cowrie/cowrie:latest
+# Ricrea con lo stesso docker-compose
+
+# 12. Verifica che Wazuh stia ancora ingestendo i log
+sudo /var/ossec/bin/wazuh-logtest
+# Incolla una riga di log Cowrie e verifica che la regola matchi
+```
+
+**Fase 5 — Lessons Learned**
+
+Dopo l'incidente, rispondi a queste domande:
+- L'alert e' arrivato in tempo? Se no, serve una regola con frequenza piu' alta?
+- Il firewall ha bloccato l'IP abbastanza velocemente? Serve una regola automatica?
+- L'attaccante ha usato tecniche non coperte dalle regole Wazuh? Serve una nuova regola custom?
+
+### Playbook 2: Brute force su SSH reale (alert rule 5712, livello 10)
+
+**Trigger:** Alert Wazuh "sshd: Multiple authentication failures"
+
+**Questo e' piu' grave dell'honeypot** — l'attaccante sta colpendo il servizio SSH reale (porta 22), non la trappola.
+
+```bash
+# 1. IMMEDIATO: verifica che Fail2ban abbia gia' bannato l'IP
+sudo fail2ban-client status sshd | grep "<IP>"
+
+# 2. Se non bannato, blocca manualmente
+sudo ufw deny from <IP_ATTACCANTE> comment "SSH brute force - $(date +%Y-%m-%d)"
+
+# 3. Verifica che NESSUN login sia riuscito
+grep "Accepted" /var/log/auth.log | grep "<IP_ATTACCANTE>"
+# Se trovi risultati: ESCALATION IMMEDIATA — l'attaccante e' dentro
+
+# 4. Se il login e' riuscito (worst case):
+#    a. Identifica l'utente compromesso
+#    b. Blocca l'utente: sudo passwd -l <utente>
+#    c. Termina le sessioni attive: sudo pkill -u <utente>
+#    d. Cambia TUTTE le password e rigenera le chiavi SSH
+#    e. Controlla crontab e authorized_keys dell'utente per persistence
+sudo crontab -l -u <utente>
+cat /home/<utente>/.ssh/authorized_keys   # Cercare chiavi sconosciute
+#    f. Avvia scan FIM immediato: sudo /var/ossec/bin/wazuh-control restart
+```
+
+### Playbook 3: Modifica file di sistema (alert rule 550-554, FIM)
+
+**Trigger:** Alert Wazuh "File modified" su `/etc/passwd`, `/etc/shadow`, `/etc/ssh/sshd_config` o binari in `/usr/bin`
+
+```bash
+# 1. Identifica COSA e' cambiato
+# Dalla Dashboard: campo syscheck.path, syscheck.diff (se abilitato)
+
+# 2. Identifica CHI ha cambiato il file
+# Campo syscheck.audit.user.name (richiede auditd)
+# Oppure: controlla auth.log per comandi sudo recenti
+grep "sudo" /var/log/auth.log | tail -20
+
+# 3. Il cambiamento e' legittimo?
+#    - Hai appena fatto apt upgrade? → normale
+#    - Hai modificato sshd_config via OMV? → normale
+#    - Nessuno ha toccato il sistema? → INVESTIGARE
+
+# 4. Se illegittimo:
+#    a. Salva il file modificato per analisi forense
+sudo cp /etc/<file_modificato> /tmp/evidence_$(date +%Y%m%d)
+#    b. Ripristina dal backup o dal pacchetto
+sudo apt install --reinstall <pacchetto_che_contiene_il_file>
+#    c. Controlla se l'attaccante ha creato backdoor
+sudo grep -r "0:0" /etc/passwd    # Cercare utenti con UID 0 (root) non legittimi
+sudo find / -perm -4000 -ls 2>/dev/null   # Cercare binari SUID nuovi
+```
+
+### Matrice di escalation
+
+| Livello alert | Tipo | Azione | Tempo risposta |
+|---|---|---|---|
+| 3-5 | Info/Low | Registrare, controllare a fine giornata | 24 ore |
+| 6-9 | Medium | Investigare entro 1 ora, correlare con altri eventi | 1 ora |
+| 10-12 | High | Contenimento immediato (blocco IP/utente), investigazione completa | 15 minuti |
+| 13-15 | Critical | Tutto il traffico in ingresso bloccato, analisi forense, considera di staccare il Pi dalla rete | Immediato |
+
+> **Regola operativa:** Un playbook che non e' stato testato non funziona. Almeno una volta al mese, simula un incidente (connettiti all'honeypot da una rete esterna, modifica un file monitorato) e segui il playbook dall'inizio alla fine. Ogni volta troverai passaggi che mancano o che non funzionano come previsto

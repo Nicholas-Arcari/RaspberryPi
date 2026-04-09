@@ -687,6 +687,467 @@ sudo /usr/share/wazuh-indexer/bin/indexer-security-init.sh
 
 ---
 
+## Suricata IDS/IPS: la componente che manca a Wazuh
+
+Wazuh e' eccellente nell'analisi dei log (host-based detection), ma e' cieco sul **traffico di rete**. Non vede pacchetti malformati, exploit di rete, comunicazioni C2 (Command & Control), o DNS tunneling — vede solo cio' che i log applicativi riportano.
+
+**Suricata** e' un Network IDS/IPS open-source che analizza il traffico in tempo reale con regole signature-based. L'abbinamento Wazuh + Suricata e' lo standard de facto per un SOC completo:
+
+```
+Traffico di rete ──► [Suricata] ──► eve.json ──► [Wazuh Agent] ──► [Manager] ──► Dashboard
+                      │                           (log_format: json)
+                      │ Analizza:
+                      ├── Signature matching (regole ET Open)
+                      ├── Protocol anomaly detection
+                      ├── TLS/SSL inspection
+                      ├── DNS query logging
+                      ├── HTTP request logging
+                      └── File extraction (MD5/SHA256)
+```
+
+### Cosa rileva Suricata che Wazuh da solo non vede
+
+| Minaccia | Wazuh (senza Suricata) | Wazuh + Suricata |
+|---|---|---|
+| Nmap SYN scan | Vede solo i log UFW (post-firewall) | Rileva la scansione dal pattern dei pacchetti (SID:2100001) |
+| Exploit di rete (EternalBlue, Log4Shell) | Non rileva (nessun log applicativo) | Rileva la signature nell'exploit payload |
+| Comunicazione C2 (beacon, reverse shell) | Non rileva (il traffico esce su porte legittime) | Rileva pattern C2 noti (Cobalt Strike, Metasploit) |
+| DNS tunneling (data exfiltration) | Non rileva (Pi-hole vede la query, non il payload) | Rileva query DNS anomale (lunghezza, entropia, frequenza) |
+| Download malware (HTTP) | Non rileva (Cowrie cattura i file, ma sul traffico reale?) | Rileva hash/signature del file nel traffico |
+| Brute force SSH | **Si** (da auth.log) | **Si** (anche dal traffico, come backup) |
+
+### Installazione su Raspberry Pi
+
+```bash
+# Suricata e' nei repository Debian
+sudo apt install suricata suricata-oinkmaster -y
+
+# Verifica versione
+suricata --build-info | head -5
+```
+
+### Configurazione base (`/etc/suricata/suricata.yaml`)
+
+```yaml
+# Interfaccia da monitorare (la stessa del Pi)
+af-packet:
+  - interface: end0
+    cluster-id: 99
+    cluster-type: cluster_flow    # Bilanciamento per flusso (non per pacchetto)
+    defrag: yes
+
+# Rete da proteggere (HOME_NET)
+vars:
+  address-groups:
+    HOME_NET: "[192.168.0.0/24, 192.168.150.0/24, 10.8.0.0/24]"
+    EXTERNAL_NET: "!$HOME_NET"
+
+# Output in formato JSON (compatibile con Wazuh)
+outputs:
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: /var/log/suricata/eve.json
+      types:
+        - alert                    # Alert quando una regola matcha
+        - dns                      # Tutte le query DNS (utile per threat hunting)
+        - http                     # Tutte le request HTTP (URL, user-agent, referer)
+        - tls                      # Handshake TLS (SNI, certificato, JA3 fingerprint)
+        - files                    # File estratti dal traffico (con hash)
+```
+
+### Regole: Emerging Threats Open (ET Open)
+
+```bash
+# Aggiorna le regole ET Open (gratuite, aggiornate quotidianamente)
+sudo suricata-update
+
+# Le regole vengono scaricate in /var/lib/suricata/rules/suricata.rules
+# Contengono ~40.000+ signature per:
+# - Malware noti (trojan, ransomware, coinminer)
+# - Exploit (CVE specifiche)
+# - C2 communication (Cobalt Strike, Metasploit, etc.)
+# - Policy violations (torrent, VPN non autorizzate)
+# - Scan e reconnaissance
+
+# Avvia Suricata
+sudo systemctl enable --now suricata
+```
+
+### Integrazione con Wazuh
+
+Sul **Manager**, aggiungere Suricata come sorgente di log in `/var/ossec/etc/ossec.conf`:
+
+```xml
+<!-- Log Suricata (formato JSON come Cowrie) -->
+<localfile>
+  <log_format>json</log_format>
+  <location>/var/log/suricata/eve.json</location>
+</localfile>
+```
+
+Wazuh ha gia' **regole built-in per Suricata** (rule group `suricata`). Dopo il restart del Manager, gli alert Suricata appariranno automaticamente sulla Dashboard con il mapping MITRE ATT&CK.
+
+Esempio di alert correlato sulla Dashboard:
+
+```
+[Suricata] ET MALWARE Win32/Emotet CnC Activity (rule 2025636, severity 1)
+    src_ip: 192.168.0.50  dst_ip: 185.X.X.X  dst_port: 443
+    + [Wazuh FIM] File modified: /usr/bin/curl (hash changed)
+    + [Wazuh] Anomalous outbound connection from 192.168.0.50
+    = Possibile compromissione del PC Windows con Emotet
+```
+
+> **Nota sulle risorse:** Suricata su Raspberry Pi 5 funziona, ma con limitazioni. Su una LAN gigabit saturata, Suricata potrebbe droppare pacchetti. Per il nostro uso (traffico domestico, ~10-50 Mbps), e' piu' che sufficiente. Monitorare con `suricata -c /etc/suricata/suricata.yaml --dump-config | grep "detect.profile"` e `sudo suricatasc -c "dump-counters"`.
+
+---
+
+## Wazuh Rules Best Practices: configurazione per il nostro lab
+
+La configurazione di default di Wazuh rileva le minacce piu' comuni, ma per un home lab esposto a Internet serve un tuning specifico. Queste sono le configurazioni raccomandate per proteggersi da bot, malware, worm e attacchi mirati.
+
+### 1. Active Response: blocco automatico degli IP
+
+Active Response e' la funzionalita' che trasforma Wazuh da "osservatore passivo" a "difensore attivo". Quando un alert raggiunge una certa soglia, Wazuh esegue automaticamente un'azione (tipicamente: bloccare l'IP con iptables/UFW).
+
+Aggiungere a `/var/ossec/etc/ossec.conf` sul Manager:
+
+```xml
+<ossec_config>
+  <active-response>
+    <!-- Blocca IP per 30 minuti dopo 5 tentativi SSH falliti -->
+    <command>firewall-drop</command>
+    <location>local</location>
+    <rules_id>5712</rules_id>          <!-- sshd: Multiple auth failures -->
+    <timeout>1800</timeout>             <!-- 30 minuti (in secondi) -->
+  </active-response>
+
+  <active-response>
+    <!-- Blocca IP immediatamente dopo intrusione honeypot -->
+    <command>firewall-drop</command>
+    <location>local</location>
+    <rules_id>100012</rules_id>         <!-- Cowrie: Login success -->
+    <timeout>86400</timeout>            <!-- 24 ore -->
+  </active-response>
+
+  <active-response>
+    <!-- Blocca IP dopo scansione porte rilevata -->
+    <command>firewall-drop</command>
+    <location>local</location>
+    <rules_id>5710</rules_id>           <!-- Port scan detected -->
+    <timeout>3600</timeout>             <!-- 1 ora -->
+  </active-response>
+</ossec_config>
+```
+
+Il comando `firewall-drop` esegue `/var/ossec/active-response/bin/firewall-drop` che aggiunge una regola iptables `DROP` per l'IP. Allo scadere del `timeout`, la regola viene rimossa automaticamente.
+
+**Verifica Active Response in azione:**
+
+```bash
+# Mostra gli IP attualmente bloccati da Active Response
+sudo /var/ossec/bin/agent_control -L
+
+# Log delle azioni eseguite
+sudo tail -f /var/ossec/logs/active-responses.log
+```
+
+> **Attenzione:** Non attivare Active Response sulla regola 100011 (login failed honeypot) — bloccheresti i bot prima che rivelino le loro tecniche. L'honeypot deve rimanere accessibile. Blocca solo dopo il login riuscito (100012), quando hai gia' raccolto le credenziali usate.
+
+### 2. Vulnerability Detection: scansione CVE dei pacchetti installati
+
+Wazuh puo' confrontare i pacchetti installati sul sistema con i database di vulnerabilita' note (NVD, Debian Security Tracker) e alertare se un pacchetto ha CVE aperte.
+
+Aggiungere a `ossec.conf` sull'**agent**:
+
+```xml
+<wodle name="syscollector">
+  <disabled>no</disabled>
+  <interval>1h</interval>              <!-- Scansione ogni ora -->
+  <scan_on_start>yes</scan_on_start>
+  <packages>yes</packages>             <!-- Raccoglie lista pacchetti installati -->
+  <ports all="no">yes</ports>          <!-- Raccoglie porte in ascolto -->
+  <processes>yes</processes>            <!-- Raccoglie processi attivi -->
+</wodle>
+```
+
+Sul **Manager**, abilitare il modulo vulnerability detector:
+
+```xml
+<vulnerability-detector>
+  <enabled>yes</enabled>
+  <interval>5m</interval>
+  <run_on_start>yes</run_on_start>
+
+  <!-- Feed Debian (il nostro OS) -->
+  <provider name="debian">
+    <enabled>yes</enabled>
+    <os>bookworm</os>
+    <update_interval>1h</update_interval>
+  </provider>
+
+  <!-- Feed NVD (National Vulnerability Database) -->
+  <provider name="nvd">
+    <enabled>yes</enabled>
+    <update_interval>1h</update_interval>
+  </provider>
+</vulnerability-detector>
+```
+
+Sulla Dashboard, la sezione **Vulnerability Detection** mostrera' i CVE per ogni agent, con severita' CVSS, pacchetto affetto e versione da installare.
+
+### 3. CDB Lists: IP reputation e IOC (Indicators of Compromise)
+
+Le **CDB lists** (Constant DataBase) permettono di arricchire le regole con liste esterne. L'uso piu' comune: una lista di IP malevoli noti per generare alert quando compaiono nei log.
+
+```bash
+# Scarica una lista di IP noti per attacchi (Abuse.ch)
+sudo wget -O /var/ossec/etc/lists/abusech-ipblocklist \
+  "https://feodotracker.abuse.ch/downloads/ipblocklist_recommended.txt"
+
+# Converti nel formato CDB (chiave:valore)
+sudo awk '{print $1":"}' /var/ossec/etc/lists/abusech-ipblocklist \
+  > /var/ossec/etc/lists/abusech-ipblocklist.cdb
+
+# Compila la lista
+sudo /var/ossec/bin/wazuh-makelists
+```
+
+Aggiungere la lista in `ossec.conf`:
+
+```xml
+<ruleset>
+  <list>etc/lists/abusech-ipblocklist</list>
+</ruleset>
+```
+
+Creare una regola che usa la lista in `/var/ossec/etc/rules/local_rules.xml`:
+
+```xml
+<!-- Alert quando un IP nella blacklist appare nei log -->
+<rule id="100020" level="12">
+  <if_sid>5710,5712,100012</if_sid>
+  <list field="srcip" lookup="address_match_key">etc/lists/abusech-ipblocklist</list>
+  <description>Connessione da IP in blacklist Abuse.ch ($(srcip))</description>
+  <mitre>
+    <id>T1071</id>  <!-- Application Layer Protocol -->
+  </mitre>
+</rule>
+```
+
+> **Automazione:** Crea un cron job per aggiornare la lista quotidianamente:
+> ```bash
+> echo "0 6 * * * root wget -qO /var/ossec/etc/lists/abusech-ipblocklist https://feodotracker.abuse.ch/downloads/ipblocklist_recommended.txt && /var/ossec/bin/wazuh-makelists" | sudo tee /etc/cron.d/wazuh-ioc-update
+> ```
+
+### 4. CIS Benchmark: verifica automatica dell'hardening
+
+Wazuh puo' verificare automaticamente la conformita' del sistema ai **CIS Benchmarks** (Center for Internet Security) — uno standard industriale per l'hardening.
+
+Aggiungere a `ossec.conf` sull'agent:
+
+```xml
+<wodle name="sca">
+  <enabled>yes</enabled>
+  <scan_on_start>yes</scan_on_start>
+  <interval>12h</interval>
+
+  <!-- Policy CIS per Debian 12 (Bookworm) -->
+  <policies>
+    <policy>cis_debian12.yml</policy>
+  </policies>
+</wodle>
+```
+
+Sulla Dashboard, la sezione **Security Configuration Assessment (SCA)** mostrera':
+- Quanti check passano e quanti falliscono
+- Per ogni check fallito: cosa correggere e perche' (con riferimento CIS)
+- Score complessivo (es. 78/100)
+
+Esempio di check che potrebbe fallire nel nostro setup:
+
+| Check CIS | Stato | Motivo |
+|---|---|---|
+| "Ensure SSH MaxAuthTries is set to 4 or less" | FAIL | Il nostro `sshd_config` non lo specifica (default: 6) |
+| "Ensure permissions on /etc/shadow are configured" | PASS | Permessi corretti (640) |
+| "Ensure ip forwarding is disabled" | FAIL | **Atteso**: WireGuard richiede `ip_forward=1` |
+
+> I FAIL "attesi" (come ip forwarding per WireGuard) vanno documentati come eccezioni, non corretti ciecamente. Un buon analista distingue tra un FAIL reale e un FAIL dovuto a un requisito architetturale.
+
+---
+
+## ClamAV + YARA: antivirus e malware analysis integrati
+
+### ClamAV: scansione antivirus periodica
+
+**ClamAV** e' l'antivirus open-source piu' diffuso su Linux. Integrato con Wazuh, genera alert quando rileva malware.
+
+```bash
+# Installazione
+sudo apt install clamav clamav-daemon -y
+
+# Aggiorna le signature (prima esecuzione: puo' richiedere minuti)
+sudo systemctl stop clamav-freshclam
+sudo freshclam
+sudo systemctl start clamav-freshclam
+
+# Test: scarica il file di test EICAR (non e' un vero virus)
+wget -O /tmp/eicar.com "https://secure.eicar.org/eicar.com"
+
+# Scansione manuale
+clamscan /tmp/eicar.com
+# /tmp/eicar.com: Win.Test.EICAR_HDB-1 FOUND
+```
+
+**Integrazione con Wazuh — scansione automatica dei file scaricati dall'honeypot:**
+
+Aggiungere a `ossec.conf` sull'agent:
+
+```xml
+<!-- Esegui ClamAV quando syscheck rileva un nuovo file nella directory download Cowrie -->
+<command>
+  <name>clamscan</name>
+  <executable>clamscan.sh</executable>
+  <timeout_allowed>yes</timeout_allowed>
+</command>
+
+<active-response>
+  <command>clamscan</command>
+  <location>local</location>
+  <rules_id>554</rules_id>  <!-- New file detected by syscheck -->
+</active-response>
+```
+
+Creare lo script `/var/ossec/active-response/bin/clamscan.sh`:
+
+```bash
+#!/bin/bash
+# Scansiona il file rilevato da syscheck con ClamAV
+# Se positivo, Wazuh genera un alert dal log di ClamAV
+
+LOCAL=$(dirname $0)
+ALERT_FILE=$1
+FILENAME=$(echo "$ALERT_FILE" | jq -r '.parameters.alert.syscheck.path')
+
+if [[ -f "$FILENAME" ]]; then
+    clamscan --no-summary "$FILENAME" >> /var/log/clamav/wazuh-scan.log 2>&1
+fi
+```
+
+Aggiungere il log ClamAV come sorgente Wazuh:
+
+```xml
+<localfile>
+  <log_format>syslog</log_format>
+  <location>/var/log/clamav/wazuh-scan.log</location>
+</localfile>
+```
+
+Wazuh ha regole built-in per ClamAV (rule group `clam`). Quando ClamAV trova malware, l'alert appare sulla Dashboard con il nome del malware e il path del file.
+
+### YARA: analisi avanzata dei file dell'honeypot
+
+**YARA** e' il tool standard per la classificazione del malware. A differenza di ClamAV (signature-based), YARA usa regole flessibili basate su pattern, stringhe e condizioni logiche.
+
+```bash
+# Installazione
+sudo apt install yara -y
+```
+
+Esempio di regola YARA per rilevare script malevoli scaricati nell'honeypot:
+
+```bash
+sudo mkdir -p /var/ossec/ruleset/yara/rules
+```
+
+Creare `/var/ossec/ruleset/yara/rules/honeypot_malware.yar`:
+
+```yara
+rule CoinMiner_Generic {
+    meta:
+        description = "Rileva script di mining cryptocurrency"
+        author = "Homelab SOC"
+        severity = "high"
+    strings:
+        $s1 = "stratum+tcp://" ascii    // Pool URL di mining
+        $s2 = "xmrig" ascii nocase      // XMRig miner
+        $s3 = "minerd" ascii            // CPU miner
+        $s4 = "--donate-level" ascii    // Flag XMRig
+        $s5 = "cryptonight" ascii       // Algoritmo mining Monero
+    condition:
+        any of them
+}
+
+rule Reverse_Shell {
+    meta:
+        description = "Rileva tentativi di reverse shell"
+        severity = "critical"
+    strings:
+        $s1 = "/dev/tcp/" ascii                    // Bash reverse shell
+        $s2 = "bash -i >& /dev/tcp" ascii          // Classic bash reverse shell
+        $s3 = "python -c 'import socket" ascii     // Python reverse shell
+        $s4 = "nc -e /bin/" ascii                   // Netcat reverse shell
+        $s5 = "exec 5<>/dev/tcp/" ascii            // File descriptor reverse shell
+    condition:
+        any of them
+}
+
+rule SSH_Key_Theft {
+    meta:
+        description = "Script che tenta di rubare chiavi SSH"
+        severity = "critical"
+    strings:
+        $s1 = ".ssh/id_rsa" ascii
+        $s2 = ".ssh/authorized_keys" ascii
+        $s3 = "cat /etc/shadow" ascii
+        $s4 = "/root/.ssh" ascii
+    condition:
+        2 of them
+}
+```
+
+**Scansione automatica dei file dell'honeypot:**
+
+```bash
+# Scansiona tutti i file scaricati dall'honeypot con YARA
+yara -r /var/ossec/ruleset/yara/rules/ /home/pi/cowrie/downloads/
+
+# Output esempio:
+# CoinMiner_Generic /home/pi/cowrie/downloads/a1b2c3d4...
+# Reverse_Shell /home/pi/cowrie/downloads/e5f6g7h8...
+```
+
+L'integrazione con Wazuh segue lo stesso pattern di ClamAV: uno script di Active Response che esegue YARA quando un nuovo file appare nella directory downloads, e il risultato viene ingestito come log.
+
+> **Il valore combinato:** ClamAV rileva malware noto (signature match esatto). YARA rileva pattern comportamentali (anche in malware mai visto prima). Usarli insieme offre copertura sia su minacce note che sconosciute.
+
+---
+
+## Riepilogo: stack di detection completo
+
+```
+LIVELLO RETE          LIVELLO HOST            LIVELLO FILE
+─────────────         ──────────────          ──────────────
+Suricata              Wazuh Agent             ClamAV
+├── IDS signatures    ├── Log analysis        ├── Signature AV
+├── Protocol anomaly  ├── FIM (syscheck)      └── Database aggiornato
+├── DNS logging       ├── Rootcheck
+├── TLS inspection    ├── Vulnerability det.  YARA
+└── File extraction   ├── CIS Benchmark       ├── Pattern matching
+                      └── Active Response     └── Regole custom
+        │                     │                       │
+        └─────────────────────┼───────────────────────┘
+                              ▼
+                     Wazuh Manager (correlazione)
+                              │
+                              ▼
+                     Dashboard (visualizzazione + threat hunting)
+```
+
+Ogni layer copre una superficie diversa. Wazuh da solo e' cieco sulla rete e limitato sui file. Con Suricata, ClamAV e YARA, la copertura diventa completa.
+
+---
+
 ## Stato attuale del sistema
 
 Il sistema e' pienamente operativo:
