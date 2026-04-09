@@ -549,4 +549,142 @@ Ogni layer aggiunge una barriera. Un attaccante che compromette un'applicazione 
 
 ---
 
+## Perche' Docker e non le alternative
+
+### Docker vs Podman vs LXC/LXD
+
+| Aspetto | Docker | Podman | LXC/LXD |
+|---|---|---|---|
+| **Architettura** | Client-server (daemon `dockerd`) | **Daemonless** (ogni container e' un processo) | System containers (piu' simili a VM) |
+| **Root richiesto** | Si (il daemon gira come root) | **No** (rootless nativo) | Si (per LXC), No (per LXD) |
+| **Sicurezza** | Il socket Docker = accesso root | Isolamento migliore (no daemon condiviso) | Isolamento forte (namespace completi) |
+| **Compatibilita' Docker Compose** | Nativa | `podman-compose` (compatibile al ~95%) | No (sintassi diversa) |
+| **Registry/immagini** | Docker Hub (default) | Docker Hub + altri (Quay.io) | Immagini LXC (non Docker) |
+| **RPi ARM64** | Si | Si | Si |
+| **Ecosystem** | Enorme (piu' immagini, piu' guide) | In crescita (Red Hat lo spinge) | Nichia (Canonical/Ubuntu) |
+
+**Perche' Docker e non Podman:**
+
+1. **Compatibilita' OMV**: OpenMediaVault ha plugin e integrazione testata con Docker, non con Podman
+2. **Portainer**: funziona nativamente con Docker. Con Podman richiede workaround (abilitare il socket Podman compatibile Docker)
+3. **Immagini ARM64**: la maggior parte delle immagini su Docker Hub e' testata con Docker Engine. Con Podman, occasionalmente si incontrano problemi di compatibilita' su ARM64
+4. **Documentazione**: per un progetto educativo, avere migliaia di guide Docker e' un vantaggio. Podman e' meno documentato, specialmente su Raspberry Pi
+
+**Quando preferire Podman:** Se la sicurezza e' la priorita' assoluta. Il fatto che Docker richieda un daemon root e' un rischio reale — compromettere il daemon = root sull'host. Podman elimina questo rischio. In ambiente enterprise, Podman sta sostituendo Docker per questo motivo.
+
+**Installazione Podman (se volessi provarlo):**
+
+```bash
+sudo apt install podman -y
+
+# Podman usa la stessa sintassi di Docker
+podman run -d --name test alpine sleep 3600
+podman ps
+podman exec test sh
+
+# Per compatibilita' con Docker Compose:
+sudo apt install podman-compose -y
+# Poi: podman-compose up -d (al posto di docker compose up -d)
+```
+
+### Portainer vs Yacht vs Dockge vs CLI puro
+
+| | Portainer CE | Yacht | Dockge | CLI puro |
+|---|---|---|---|---|
+| **Complessita'** | Feature-rich (stack, reti, volumi, registry) | Semplice (container + template) | Minimo (compose files only) | Totale controllo |
+| **Risorse** | ~50MB RAM | ~30MB RAM | ~20MB RAM | 0 |
+| **Docker Compose** | Si (editor web) | Limitato | **Si** (focus principale) | Si (terminale) |
+| **Multi-host** | Si (agents remoti) | No | No | Si (SSH) |
+| **Curva di apprendimento** | Bassa (GUI intuitiva) | Molto bassa | Bassa | Alta (devi conoscere i comandi) |
+
+**Perche' Portainer e non Dockge:** Portainer offre gestione completa (reti, volumi, immagini, registry, stack, log, console) in un'unica interfaccia. Dockge e' piu' leggero ma gestisce solo file Docker Compose — per il nostro lab con reti custom (MacVLAN, IPVLAN), volumi condivisi e stack complessi, Portainer e' piu' adeguato.
+
+**Perche' non solo CLI:** Per un progetto educativo, avere una GUI che mostra lo stato di tutti i container, le reti, i volumi e i log in un unico posto accelera enormemente il troubleshooting. Un analista SOC deve poter verificare lo stato dei servizi in secondi, non minuti di `docker inspect`.
+
+---
+
+## Domande che un analista dovrebbe farsi (e risposte)
+
+### "Se il container Docker viene compromesso, l'attaccante ha root sull'host?"
+
+**Dipende.** Se il container gira come root (default) E ha accesso al Docker socket (`/var/run/docker.sock`), si — un attaccante puo' creare un container privilegiato che monta il filesystem dell'host.
+
+Nel nostro setup:
+- **Cowrie**: non ha il Docker socket montato. Un attaccante dentro Cowrie dovrebbe sfruttare un kernel exploit o un bug di runc per evadere
+- **Portainer**: **ha** il Docker socket (necessario per gestire Docker). Se Portainer viene compromesso, l'attaccante ha root. Per questo l'accesso a Portainer e' limitato alla LAN via UFW
+
+Mitigazioni avanzate (non implementate nel nostro lab, ma da conoscere):
+```bash
+# 1. Rootless Docker (il daemon gira come utente non-root)
+dockerd-rootless-setuptool.sh install
+
+# 2. User namespace remapping (root nel container = utente non-root sull'host)
+# In /etc/docker/daemon.json:
+# { "userns-remap": "default" }
+
+# 3. Read-only filesystem del container
+docker run --read-only --tmpfs /tmp alpine sh
+```
+
+### "Cosa succede ai dati quando un container viene eliminato?"
+
+Tutto cio' che non e' in un **volume** o un **bind mount** viene perso. Questa e' una confusione comune:
+
+```bash
+# DATI PERSI se il container viene eliminato:
+docker run alpine sh -c "echo 'test' > /data.txt"
+# /data.txt vive nel layer scrivibile del container → eliminato con docker rm
+
+# DATI PERSISTENTI:
+docker run -v mydata:/data alpine sh -c "echo 'test' > /data/data.txt"
+# /data/data.txt vive nel volume Docker → sopravvive a docker rm
+```
+
+Nel nostro lab, tutti i servizi usano volumi per i dati importanti:
+- Portainer: `portainer_data` (utenti, configurazioni)
+- Pi-hole: bind mount su `/home/pi/pihole/` (configurazione, blocklist)
+- Cowrie: bind mount su `/home/pi/cowrie/log/` (log degli attaccanti)
+- WireGuard: bind mount su `~/wireguard/` (chiavi, configurazioni client)
+
+### "Docker puo' sopravvivere a un reboot senza perdere nulla?"
+
+Si, se i container hanno `--restart=always` o `--restart=unless-stopped`. Al reboot:
+1. Il daemon Docker parte (systemd enable)
+2. Ripristina tutti i container con restart policy
+3. I volumi sono gia' montati (sono directory su disco)
+4. Le reti custom (MacVLAN, IPVLAN) vengono ricreate
+
+**Eccezione critica:** La VLAN 150 (`end0.150`) viene persa al reboot se non resa persistente in `/etc/network/interfaces.d/`. Senza la sotto-interfaccia, la rete Docker IPVLAN non funziona e i container su quella rete non partono. Questo e' documentato nella sezione VLAN.
+
+### "Quanto spazio disco consuma Docker nel tempo?"
+
+Docker accumula immagini vecchie, layer orfani e container fermi:
+
+```bash
+# Mostra l'uso disco dettagliato
+docker system df -v
+
+# Output tipico dopo mesi di uso:
+# TYPE          TOTAL    ACTIVE    SIZE      RECLAIMABLE
+# Images        12       5         3.2GB     1.8GB (56%)
+# Containers    5        5         120MB     0B
+# Volumes       4        4         500MB     0B
+# Build Cache   0        0         0B        0B
+```
+
+Il 56% delle immagini e' reclaimable (vecchie versioni non piu' usate). Pulizia periodica:
+
+```bash
+# Rimuovi solo cio' che e' sicuramente non usato
+docker image prune -f      # Rimuove immagini dangling (senza tag)
+docker container prune -f  # Rimuove container fermi
+
+# Pulizia aggressiva (ATTENZIONE: rimuove TUTTO cio' che non e' in uso)
+docker system prune -a -f
+```
+
+> **Best practice:** Schedulare `docker image prune -f` via cron settimanale. Non usare `docker system prune -a` automaticamente — potrebbe rimuovere immagini che servono per ricreare container.
+
+---
+
 Prossimo step: [Secure your RaspberryPi](../Secure%20your%20RaspberryPi/) - hardening del sistema prima di esporre servizi.
