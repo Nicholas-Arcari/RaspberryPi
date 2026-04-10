@@ -26,7 +26,7 @@
 #   cowrie      - Cowrie Honeypot
 #   vlan        - VLAN 150 + rete IPVLAN
 #
-# NOTA: Questo script e' documentativo — ogni comando e' commentato per
+# NOTA: Questo script e' documentativo - ogni comando e' commentato per
 # spiegare cosa fa e perche'. Leggilo prima di eseguirlo.
 # =============================================================================
 
@@ -256,7 +256,7 @@ module_docker() {
 module_pihole() {
     log_info "=== PI-HOLE (MacVLAN) ==="
 
-    # Crea rete MacVLAN — Pi-hole ottiene un IP dedicato sulla LAN
+    # Crea rete MacVLAN - Pi-hole ottiene un IP dedicato sulla LAN
     # Questo evita conflitti di porta con OMV (:80) e systemd-resolved (:53)
     if ! docker network ls --format '{{.Name}}' | grep -q "^macvlan_lan$"; then
         docker network create -d macvlan \
@@ -336,7 +336,7 @@ COMPOSE
     # Avvia WireGuard
     cd /home/"${SUDO_USER:-pi}"/wireguard
     docker compose up -d
-    log_ok "WireGuard avviato — Web UI: http://$RASPBERRY_IP:51821"
+    log_ok "WireGuard avviato - Web UI: http://$RASPBERRY_IP:51821"
     log_warn "Configura port forwarding sul router: 51820/UDP → $RASPBERRY_IP"
 }
 
@@ -358,7 +358,7 @@ module_cowrie() {
             -v /home/"${SUDO_USER:-pi}"/cowrie/log:/home/cowrie/cowrie-git/var/log/cowrie \
             -v /home/"${SUDO_USER:-pi}"/cowrie/downloads:/home/cowrie/cowrie-git/var/lib/cowrie/downloads \
             cowrie/cowrie:latest
-        log_ok "Cowrie avviato — SSH finto su porta 2222"
+        log_ok "Cowrie avviato - SSH finto su porta 2222"
         log_warn "Configura Wazuh per ingestire /home/${SUDO_USER:-pi}/cowrie/log/cowrie.json"
     else
         log_ok "Cowrie gia' in esecuzione"
@@ -408,7 +408,7 @@ VLAN
 }
 
 # =============================================================================
-# MODULO 8: WAZUH (indicazioni — installazione manuale richiesta)
+# MODULO 8: WAZUH (indicazioni - installazione manuale richiesta)
 # =============================================================================
 module_wazuh() {
     log_info "=== WAZUH SIEM ==="
