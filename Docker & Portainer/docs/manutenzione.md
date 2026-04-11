@@ -1,3 +1,5 @@
+>  [English](manutenzione.en.md) |  **Italiano**
+
 # Manutenzione, Domande da Analista e Cosa Evitare
 
 ## Comandi di manutenzione utili
@@ -17,7 +19,7 @@ docker stats
 
 # Pulizia immagini, container e volumi inutilizzati
 docker system prune -a
-# ATTENZIONE: rimuove tutto cio' che non e' in uso. Usare con cautela.
+# ATTENZIONE: rimuove tutto ciò che non è in uso. Usare con cautela.
 
 # Ispezionare un container (rete, volumi, env variables)
 docker inspect <nome_container>
@@ -29,11 +31,11 @@ docker inspect <nome_container>
 
 ### "Se il container Docker viene compromesso, l'attaccante ha root sull'host?"
 
-**Dipende.** Se il container gira come root (default) E ha accesso al Docker socket (`/var/run/docker.sock`), si - un attaccante puo' creare un container privilegiato che monta il filesystem dell'host.
+**Dipende.** Se il container gira come root (default) E ha accesso al Docker socket (`/var/run/docker.sock`), si - un attaccante può creare un container privilegiato che monta il filesystem dell'host.
 
 Nel nostro setup:
 - **Cowrie**: non ha il Docker socket montato. Un attaccante dentro Cowrie dovrebbe sfruttare un kernel exploit o un bug di runc per evadere
-- **Portainer**: **ha** il Docker socket (necessario per gestire Docker). Se Portainer viene compromesso, l'attaccante ha root. Per questo l'accesso a Portainer e' limitato alla LAN via UFW
+- **Portainer**: **ha** il Docker socket (necessario per gestire Docker). Se Portainer viene compromesso, l'attaccante ha root. Per questo l'accesso a Portainer è limitato alla LAN via UFW
 
 Mitigazioni avanzate (non implementate nel nostro lab, ma da conoscere):
 ```bash
@@ -50,7 +52,7 @@ docker run --read-only --tmpfs /tmp alpine sh
 
 ### "Cosa succede ai dati quando un container viene eliminato?"
 
-Tutto cio' che non e' in un **volume** o un **bind mount** viene perso. Questa e' una confusione comune:
+Tutto ciò che non è in un **volume** o un **bind mount** viene perso. Questa è una confusione comune:
 
 ```bash
 # DATI PERSI se il container viene eliminato:
@@ -68,15 +70,15 @@ Nel nostro lab, tutti i servizi usano volumi per i dati importanti:
 - Cowrie: bind mount su `/home/pi/cowrie/log/` (log degli attaccanti)
 - WireGuard: bind mount su `~/wireguard/` (chiavi, configurazioni client)
 
-### "Docker puo' sopravvivere a un reboot senza perdere nulla?"
+### "Docker può sopravvivere a un reboot senza perdere nulla?"
 
 Si, se i container hanno `--restart=always` o `--restart=unless-stopped`. Al reboot:
 1. Il daemon Docker parte (systemd enable)
 2. Ripristina tutti i container con restart policy
-3. I volumi sono gia' montati (sono directory su disco)
+3. I volumi sono già montati (sono directory su disco)
 4. Le reti custom (MacVLAN, IPVLAN) vengono ricreate
 
-**Eccezione critica:** La VLAN 150 (`end0.150`) viene persa al reboot se non resa persistente in `/etc/network/interfaces.d/`. Senza la sotto-interfaccia, la rete Docker IPVLAN non funziona e i container su quella rete non partono. Questo e' documentato nella sezione VLAN.
+**Eccezione critica:** La VLAN 150 (`end0.150`) viene persa al reboot se non resa persistente in `/etc/network/interfaces.d/`. Senza la sotto-interfaccia, la rete Docker IPVLAN non funziona e i container su quella rete non partono. Questo è documentato nella sezione VLAN.
 
 ### "Quanto spazio disco consuma Docker nel tempo?"
 
@@ -94,14 +96,14 @@ docker system df -v
 # Build Cache   0        0         0B        0B
 ```
 
-Il 56% delle immagini e' reclaimable (vecchie versioni non piu' usate). Pulizia periodica:
+Il 56% delle immagini è reclaimable (vecchie versioni non più usate). Pulizia periodica:
 
 ```bash
-# Rimuovi solo cio' che e' sicuramente non usato
+# Rimuovi solo ciò che è sicuramente non usato
 docker image prune -f      # Rimuove immagini dangling (senza tag)
 docker container prune -f  # Rimuove container fermi
 
-# Pulizia aggressiva (ATTENZIONE: rimuove TUTTO cio' che non e' in uso)
+# Pulizia aggressiva (ATTENZIONE: rimuove TUTTO ciò che non è in uso)
 docker system prune -a -f
 ```
 
@@ -111,7 +113,7 @@ docker system prune -a -f
 
 ## Cosa evitare
 
-| Errore | Perche' |
+| Errore | Perchè |
 |---|---|
 | Installare Docker da `get.docker.com` su OMV | Conflitti con systemd, possibili reboot loop |
 | Installare Portainer come plugin OMV | I plugin OMV hanno un ciclo di aggiornamento separato e possono restare indietro rispetto alle versioni ufficiali |
