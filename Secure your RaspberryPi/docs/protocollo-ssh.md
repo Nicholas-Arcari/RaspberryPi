@@ -1,3 +1,5 @@
+>  [English](protocollo-ssh.en.md) |  **Italiano**
+
 # Deep Dive: il protocollo SSH dalla connessione TCP all'autenticazione
 
 Per capire le direttive di `sshd_config`, bisogna prima capire cosa succede quando digiti `ssh pi@192.168.0.102`. Il protocollo SSH (RFC 4251-4254) si articola in 5 fasi sequenziali:
@@ -28,7 +30,7 @@ Client (il tuo PC)                                     Server (Raspberry Pi)
        |     e invia la firma al client                        |
        |                                                       |
        |     -> Session keys derivate da K e H tramite SHA-256 |
-       |     -> Da questo momento TUTTO il traffico e' cifrato |
+       |     -> Da questo momento TUTTO il traffico è cifrato |
        |                                                       |
        |---- [FASE 4] Canale cifrato stabilito --------------->|
        |     NEWKEYS -> entrambi i lati switchano alle nuove   |
@@ -54,13 +56,13 @@ SSH-2.0-OpenSSH_8.4p1 Debian-5+deb11u3
 +-- Identificatore del protocollo
 ```
 
-> **Implicazione di sicurezza:** Questa stringa e' visibile a chiunque si connetta alla porta 22. Rivela il software, la versione, e il sistema operativo. Un attaccante usa queste informazioni per cercare CVE specifiche. Per questo Cowrie emula una versione diversa (`OpenSSH_6.0p1`) - per sembrare un bersaglio appetibile.
+> **Implicazione di sicurezza:** Questa stringa è visibile a chiunque si connetta alla porta 22. Rivela il software, la versione, e il sistema operativo. Un attaccante usa queste informazioni per cercare CVE specifiche. Per questo Cowrie emula una versione diversa (`OpenSSH_6.0p1`) - per sembrare un bersaglio appetibile.
 
 ---
 
 ## Fase 3: Key Exchange (Diffie-Hellman su Curve25519)
 
-Questa e' la fase piu' critica. Il client e il server devono concordare una **chiave segreta condivisa** senza mai trasmetterla sulla rete. Usano il protocollo Diffie-Hellman sulla curva ellittica Curve25519:
+Questa è la fase più critica. Il client e il server devono concordare una **chiave segreta condivisa** senza mai trasmetterla sulla rete. Usano il protocollo Diffie-Hellman sulla curva ellittica Curve25519:
 
 **La matematica (semplificata):**
 
@@ -69,7 +71,7 @@ Questa e' la fase piu' critica. Il client e il server devono concordare una **ch
 3. Il **server** genera `e_s` e calcola `Q_s = e_s * G`. Invia `Q_s` al client
 4. Il **client** calcola `K = e_c * Q_s = e_c * e_s * G`
 5. Il **server** calcola `K = e_s * Q_c = e_s * e_c * G`
-6. `K` e' identico su entrambi i lati (proprieta' commutativa della moltiplicazione scalare), ma **non e' mai transitato sulla rete**
+6. `K` è identico su entrambi i lati (proprietà commutativa della moltiplicazione scalare), ma **non è mai transitato sulla rete**
 
 Un attaccante che intercetta `Q_c` e `Q_s` dovrebbe risolvere il **Problema del Logaritmo Discreto su Curva Ellittica (ECDLP)** per ricavare `e_c` o `e_s` - computazionalmente impossibile con le dimensioni di Curve25519 (256 bit -> sicurezza ~128 bit).
 
@@ -81,8 +83,8 @@ Un attaccante che intercetta `Q_c` e `Q_s` dovrebbe risolvere il **Problema del 
 | `IV_s->c` | Initialization Vector per cifratura server -> client |
 | `Enc_c->s` | Chiave di cifratura client -> server (ChaCha20 o AES-256) |
 | `Enc_s->c` | Chiave di cifratura server -> client |
-| `MAC_c->s` | Chiave HMAC per integrita' client -> server |
-| `MAC_s->c` | Chiave HMAC per integrita' server -> client |
+| `MAC_c->s` | Chiave HMAC per integrità client -> server |
+| `MAC_s->c` | Chiave HMAC per integrità server -> client |
 
 Chiavi separate per ogni direzione prevengono attacchi di reflection (un attaccante che reinvia pacchetti del client al client stesso).
 
@@ -90,7 +92,7 @@ Chiavi separate per ogni direzione prevengono attacchi di reflection (un attacca
 
 ## Host Keys vs User Keys: la distinzione fondamentale
 
-SSH usa **due tipi di chiavi asimmetriche** per scopi completamente diversi. Confonderli e' un errore comune.
+SSH usa **due tipi di chiavi asimmetriche** per scopi completamente diversi. Confonderli è un errore comune.
 
 ### Host Keys (chiavi del server)
 
@@ -131,7 +133,7 @@ ED25519 key fingerprint is SHA256:xK7vN2mP9qR8sT1uV3wX5yZ7aB9cD2eF4gH6iJ8kL0=.
 Are you sure you want to continue connecting (yes/no/[fingerprint])?
 ```
 
-**Cos'e' il fingerprint:**
+**Cos'è il fingerprint:**
 
 ```
 Chiave pubblica del server (Ed25519, 256 bit)
@@ -146,7 +148,7 @@ Chiave pubblica del server (Ed25519, 256 bit)
 "SHA256:xK7vN2mP9qR8sT1uV3wX5yZ7aB9cD2eF4gH6iJ8kL0="
 ```
 
-E' un **hash della chiave pubblica del server**, presentato in formato compatto per la verifica umana. Verificare 43 caratteri Base64 e' fattibile; verificare 256 bit di chiave raw sarebbe impraticabile.
+è un **hash della chiave pubblica del server**, presentato in formato compatto per la verifica umana. Verificare 43 caratteri Base64 è fattibile; verificare 256 bit di chiave raw sarebbe impraticabile.
 
 **Come verificarlo manualmente (sul server):**
 
@@ -156,18 +158,18 @@ ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
 # 256 SHA256:xK7vN2mP9qR8sT1uV3wX5yZ7aB9cD2eF4gH6iJ8kL0= root@raspberrypi (ED25519)
 ```
 
-Se hai accesso fisico al Pi (o una sessione SSH gia' trusted), puoi confrontare questo output con il fingerprint presentato dal client. Se corrispondono, la connessione e' autentica.
+Se hai accesso fisico al Pi (o una sessione SSH già trusted), puoi confrontare questo output con il fingerprint presentato dal client. Se corrispondono, la connessione è autentica.
 
-> **In pratica:** nella maggior parte dei setup domestici, la prima connessione avviene sulla stessa LAN, dove un attacco MitM e' poco probabile. Ma in ambienti enterprise o su reti non fidate, la verifica del fingerprint e' obbligatoria - idealmente il fingerprint viene comunicato su un canale separato (es. di persona, via telefono, su un documento interno).
+> **In pratica:** nella maggior parte dei setup domestici, la prima connessione avviene sulla stessa LAN, dove un attacco MitM è poco probabile. Ma in ambienti enterprise o su reti non fidate, la verifica del fingerprint è obbligatoria - idealmente il fingerprint viene comunicato su un canale separato (es. di persona, via telefono, su un documento interno).
 
-**Formato legacy MD5:** Le versioni piu' vecchie di OpenSSH mostravano il fingerprint in formato MD5 esadecimale:
+**Formato legacy MD5:** Le versioni più vecchie di OpenSSH mostravano il fingerprint in formato MD5 esadecimale:
 
 ```bash
 ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub -E md5
 # 256 MD5:a1:b2:c3:d4:e5:f6:a7:b8:c9:d0:e1:f2:a3:b4:c5:d6 root@raspberrypi (ED25519)
 ```
 
-Il formato SHA256/Base64 e' preferito perche' SHA-256 e' resistente alle collisioni (trovare due chiavi con lo stesso hash e' computazionalmente impossibile), mentre MD5 ha collisioni note dal 2004.
+Il formato SHA256/Base64 è preferito perchè SHA-256 è resistente alle collisioni (trovare due chiavi con lo stesso hash è computazionalmente impossibile), mentre MD5 ha collisioni note dal 2004.
 
 ---
 
@@ -183,7 +185,7 @@ Formato dei campi:
 
 | Campo | Significato |
 |---|---|
-| `\|1\|base64salt=\|base64hash=` | **Hashed hostname** - l'IP/hostname del server, offuscato con HMAC-SHA1 per privacy (un attaccante che ruba il file non puo' enumerare i server a cui ti connetti) |
+| `\|1\|base64salt=\|base64hash=` | **Hashed hostname** - l'IP/hostname del server, offuscato con HMAC-SHA1 per privacy (un attaccante che ruba il file non può enumerare i server a cui ti connetti) |
 | `ssh-ed25519` | Tipo di chiave |
 | `AAAAC3NzaC1...` | Chiave pubblica completa in Base64 |
 
@@ -194,7 +196,7 @@ Ad ogni connessione successiva, il client:
 4. **Mismatch** -> "REMOTE HOST IDENTIFICATION HAS CHANGED" (possibile MitM)
 5. **Non trovato** -> chiede di accettare il fingerprint (prima connessione)
 
-Questo modello si chiama **TOFU (Trust-On-First-Use)**: ti fidi della prima connessione e verifichi che le successive siano coerenti. E' piu' debole di una PKI (dove un'autorita' certifica l'identita'), ma piu' pratico per SSH.
+Questo modello si chiama **TOFU (Trust-On-First-Use)**: ti fidi della prima connessione e verifichi che le successive siano coerenti. è più debole di una PKI (dove un'autorità certifica l'identità), ma più pratico per SSH.
 
 ---
 
@@ -258,6 +260,6 @@ Client                                              Server
    |<-- SSH_MSG_USERAUTH_SUCCESS  ----------------------|
 ```
 
-**Il punto cruciale:** la chiave privata non attraversa mai la rete. Il server invia una sfida (challenge), il client la firma con la chiave privata, il server verifica la firma con la chiave pubblica. Questo e' il principio fondamentale della crittografia asimmetrica applicata all'autenticazione: **la conoscenza della chiave pubblica permette di verificare, ma non di forgiare, una firma**.
+**Il punto cruciale:** la chiave privata non attraversa mai la rete. Il server invia una sfida (challenge), il client la firma con la chiave privata, il server verifica la firma con la chiave pubblica. Questo è il principio fondamentale della crittografia asimmetrica applicata all'autenticazione: **la conoscenza della chiave pubblica permette di verificare, ma non di forgiare, una firma**.
 
-Anche se un attaccante intercettasse l'intera sessione, otterrebbe solo la firma di quel challenge specifico - non la chiave privata, e non una firma riutilizzabile (ogni challenge e' unico).
+Anche se un attaccante intercettasse l'intera sessione, otterrebbe solo la firma di quel challenge specifico - non la chiave privata, e non una firma riutilizzabile (ogni challenge è unico).
