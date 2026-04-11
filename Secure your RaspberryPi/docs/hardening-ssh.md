@@ -1,6 +1,8 @@
+>  [English](hardening-ssh.en.md) |  **Italiano**
+
 # Hardening SSH: configurazione e chiavi
 
-SSH e' la porta d'ingresso principale al sistema. Se un attaccante compromette SSH, ha accesso completo. Ogni direttiva nel file di configurazione ha un impatto diretto sulla superficie d'attacco.
+SSH è la porta d'ingresso principale al sistema. Se un attaccante compromette SSH, ha accesso completo. Ogni direttiva nel file di configurazione ha un impatto diretto sulla superficie d'attacco.
 
 Per il deep dive sul protocollo SSH (5 fasi, KEX, fingerprint, known_hosts, challenge-response), vedi [protocollo-ssh.md](protocollo-ssh.md).
 
@@ -16,7 +18,7 @@ Ecco le direttive critiche con la spiegazione di ciascuna:
 
 ```bash
 # Forza il protocollo SSH versione 2
-# SSH v1 ha vulnerabilita' note (CRC-32 compensation attack) ed e' deprecato
+# SSH v1 ha vulnerabilità note (CRC-32 compensation attack) ed è deprecato
 Protocol 2
 
 # Disabilita il login diretto come root
@@ -39,7 +41,7 @@ PubkeyAuthentication yes
 LoginGraceTime 120
 
 # Verifica che i permessi di ~/.ssh siano corretti
-# Se authorized_keys e' leggibile da altri utenti, SSH rifiuta di usarlo
+# Se authorized_keys è leggibile da altri utenti, SSH rifiuta di usarlo
 StrictModes yes
 
 # Disabilita autenticazione basata su host (legacy, insicura)
@@ -49,7 +51,7 @@ HostbasedAuthentication no
 PermitEmptyPasswords no
 
 # Disabilita X11 forwarding se non necessario
-# Riduce la superficie d'attacco - X11 ha una storia di vulnerabilita'
+# Riduce la superficie d'attacco - X11 ha una storia di vulnerabilità
 X11Forwarding no
 
 # Disabilita TCP forwarding - previene l'uso del Pi come proxy
@@ -100,7 +102,7 @@ AuthorizedKeysFile .ssh/authorized_keys .ssh/authorized_keys2 /var/lib/openmedia
 PubkeyAuthentication yes
 ```
 
-> **Nota importante su OMV:** OpenMediaVault rigenera automaticamente `sshd_config` ad ogni modifica dalla sua web UI. Se modifichi il file a mano, le modifiche sopravvivono finche' non tocchi le impostazioni SSH dalla dashboard OMV. Per modifiche permanenti, e' meglio usare la web UI di OMV (Services -> SSH) dove possibile.
+> **Nota importante su OMV:** OpenMediaVault rigenera automaticamente `sshd_config` ad ogni modifica dalla sua web UI. Se modifichi il file a mano, le modifiche sopravvivono finchè non tocchi le impostazioni SSH dalla dashboard OMV. Per modifiche permanenti, è meglio usare la web UI di OMV (Services -> SSH) dove possibile.
 
 ---
 
@@ -119,14 +121,14 @@ sudo systemctl restart ssh
 Sul **client** (il tuo PC):
 
 ```bash
-# Genera una coppia di chiavi Ed25519 (piu' sicura e veloce di RSA)
+# Genera una coppia di chiavi Ed25519 (più sicura e veloce di RSA)
 ssh-keygen -t ed25519 -C "nick@homelab"
 
 # Copia la chiave pubblica sul Raspberry Pi
 ssh-copy-id -i ~/.ssh/id_ed25519.pub pi@<IP_DEL_RASPBERRY>
 ```
 
-**Perche' Ed25519 e non RSA:**
+**Perchè Ed25519 e non RSA:**
 
 | Algoritmo | Dimensione chiave | Sicurezza equivalente | Performance |
 |---|---|---|---|
@@ -134,4 +136,4 @@ ssh-copy-id -i ~/.ssh/id_ed25519.pub pi@<IP_DEL_RASPBERRY>
 | RSA 4096 | 4096 bit | ~140 bit | Molto lenta |
 | Ed25519 | 256 bit | ~128 bit | Velocissima, resistente a side-channel |
 
-Ed25519 usa la curva ellittica Curve25519 e fornisce sicurezza equivalente a RSA 3000+ bit con chiavi molto piu' corte e operazioni crittografiche piu' veloci.
+Ed25519 usa la curva ellittica Curve25519 e fornisce sicurezza equivalente a RSA 3000+ bit con chiavi molto più corte e operazioni crittografiche più veloci.
