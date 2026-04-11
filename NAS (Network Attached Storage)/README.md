@@ -1,19 +1,21 @@
+>  [English](README.en.md) |  **Italiano**
+
 # NAS - Network Attached Storage con OpenMediaVault 7
 
 Questa sezione documenta la trasformazione del Raspberry Pi 5 in un NAS completo usando OpenMediaVault 7, dalla preparazione del disco NVMe alla configurazione delle condivisioni di rete accessibili da Windows, macOS e Linux.
 
 ---
 
-## Teoria: Cos'e' un NAS e perche' OMV
+## Teoria: Cos'è un NAS e perchè OMV
 
-Un NAS (Network Attached Storage) e' un dispositivo di rete dedicato alla condivisione di file. A differenza di un semplice hard disk USB condiviso, un NAS offre:
+Un NAS (Network Attached Storage) è un dispositivo di rete dedicato alla condivisione di file. A differenza di un semplice hard disk USB condiviso, un NAS offre:
 
 - **Protocolli di rete standard** (SMB per Windows, NFS per Linux/macOS)
-- **Gestione utenti e permessi** (chi puo' leggere, chi puo' scrivere)
+- **Gestione utenti e permessi** (chi può leggere, chi può scrivere)
 - **Monitoraggio salute dei dischi** (SMART)
 - **Interfaccia web** per la configurazione
 
-**OpenMediaVault (OMV)** e' una distribuzione NAS open-source basata su Debian. La versione 7 (basata su Bookworm) e' compatibile con ARM64 e si installa sopra un Raspberry Pi OS Lite esistente senza sovrascriverlo. OMV diventa, di fatto, un "layer di gestione" che controlla i servizi di rete, lo storage e i permessi tramite una web UI sulla porta 80.
+**OpenMediaVault (OMV)** è una distribuzione NAS open-source basata su Debian. La versione 7 (basata su Bookworm) è compatibile con ARM64 e si installa sopra un Raspberry Pi OS Lite esistente senza sovrascriverlo. OMV diventa, di fatto, un "layer di gestione" che controlla i servizi di rete, lo storage e i permessi tramite una web UI sulla porta 80.
 
 ---
 
