@@ -1,3 +1,5 @@
+>  [English](kernel-hardening.en.md) |  **Italiano**
+
 # Kernel Hardening con sysctl e Aggiornamenti Automatici
 
 ## Hardening sysctl
@@ -16,7 +18,7 @@ sudo nano /etc/sysctl.d/99-hardening.conf
 # === NETWORK STACK HARDENING ===
 
 # Abilita protezione SYN flood (SYN cookies)
-# Quando la coda SYN e' piena, il kernel genera un SYN cookie crittografico
+# Quando la coda SYN è piena, il kernel genera un SYN cookie crittografico
 # invece di allocare memoria - previene DoS da SYN flood
 net.ipv4.tcp_syncookies = 1
 
@@ -28,7 +30,7 @@ net.ipv6.conf.all.accept_source_route = 0
 
 # Ignora ICMP redirect
 # I redirect ICMP dicono all'host di usare un gateway diverso
-# Un attaccante puo' usarli per redirigere il traffico (MITM)
+# Un attaccante può usarli per redirigere il traffico (MITM)
 net.ipv4.conf.all.accept_redirects = 0
 net.ipv4.conf.default.accept_redirects = 0
 net.ipv6.conf.all.accept_redirects = 0
@@ -40,7 +42,7 @@ net.ipv4.conf.default.send_redirects = 0
 
 # Abilita Reverse Path Filtering (anti-spoofing)
 # Il kernel verifica che l'IP sorgente di un pacchetto in ingresso sia
-# raggiungibile dall'interfaccia su cui e' arrivato - blocca pacchetti con
+# raggiungibile dall'interfaccia su cui è arrivato - blocca pacchetti con
 # IP sorgente falsificato
 net.ipv4.conf.all.rp_filter = 1
 net.ipv4.conf.default.rp_filter = 1
@@ -58,7 +60,7 @@ net.ipv4.conf.all.log_martians = 1
 
 # ASLR (Address Space Layout Randomization) - livello massimo
 # Randomizza le posizioni di stack, heap, mmap e librerie in memoria
-# Rende molto piu' difficile sfruttare vulnerabilita' di buffer overflow
+# Rende molto più difficile sfruttare vulnerabilità di buffer overflow
 # 0 = disabilitato, 1 = stack/mmap, 2 = stack/mmap/heap (massimo)
 kernel.randomize_va_space = 2
 
@@ -68,12 +70,12 @@ fs.protected_symlinks = 1
 fs.protected_hardlinks = 1
 
 # Limita l'accesso a dmesg a utenti con CAP_SYSLOG
-# dmesg puo' rivelare informazioni sulla memoria del kernel (utili per exploit)
+# dmesg può rivelare informazioni sulla memoria del kernel (utili per exploit)
 kernel.dmesg_restrict = 1
 
-# Disabilita la possibilita' di caricare moduli kernel non firmati
+# Disabilita la possibilità di caricare moduli kernel non firmati
 # Previene il caricamento di rootkit come moduli kernel
-# NOTA: abilitare solo se tutti i moduli necessari sono gia' caricati
+# NOTA: abilitare solo se tutti i moduli necessari sono già caricati
 # kernel.modules_disabled = 1   # <-- COMMENTATO: WireGuard potrebbe aver bisogno di caricare moduli
 
 # Limita l'uso di perf (performance counters) - usabili per side-channel attacks
@@ -97,13 +99,13 @@ sysctl kernel.randomize_va_space
 # kernel.randomize_va_space = 2
 ```
 
-> **Nota su `kernel.modules_disabled`:** Se lo abiliti (valore 1), nessun modulo kernel potra' piu' essere caricato fino al prossimo reboot. Questo blocca i rootkit kernel-mode, ma impedisce anche a WireGuard di caricare il suo modulo se non e' gia' caricato. Abilitare solo dopo aver verificato che tutti i servizi funzionano correttamente.
+> **Nota su `kernel.modules_disabled`:** Se lo abiliti (valore 1), nessun modulo kernel potrà più essere caricato fino al prossimo reboot. Questo blocca i rootkit kernel-mode, ma impedisce anche a WireGuard di caricare il suo modulo se non è già caricato. Abilitare solo dopo aver verificato che tutti i servizi funzionano correttamente.
 
 ---
 
 ## Aggiornamenti Automatici
 
-Le vulnerabilita' vengono scoperte quotidianamente. Un sistema non aggiornato e' un bersaglio facile. `unattended-upgrades` installa automaticamente le patch di sicurezza senza intervento manuale.
+Le vulnerabilità vengono scoperte quotidianamente. Un sistema non aggiornato è un bersaglio facile. `unattended-upgrades` installa automaticamente le patch di sicurezza senza intervento manuale.
 
 ```bash
 sudo apt install unattended-upgrades -y
@@ -115,6 +117,6 @@ Il comando `dpkg-reconfigure` mostra una schermata interattiva - selezionare **Y
 **Cosa viene aggiornato automaticamente:**
 
 - Patch di sicurezza Debian (repository `*-security`)
-- **NON** aggiornamenti di funzionalita' o nuove versioni major
+- **NON** aggiornamenti di funzionalità o nuove versioni major
 
-Questo e' il comportamento corretto per un server: vuoi le fix di sicurezza, non vuoi che un aggiornamento ti rompa OMV o Docker senza preavviso.
+Questo è il comportamento corretto per un server: vuoi le fix di sicurezza, non vuoi che un aggiornamento ti rompa OMV o Docker senza preavviso.
