@@ -1,6 +1,8 @@
-# Architettura dello Storage - Perche' NVMe
+>  [English](storage-nvme.en.md) |  **Italiano**
 
-## Step 5: Architettura dello Storage - Perche' NVMe
+# Architettura dello Storage - Perchè NVMe
+
+## Step 5: Architettura dello Storage - Perchè NVMe
 
 ### Il problema della MicroSD
 
@@ -25,7 +27,7 @@ Un SSD NVMe collegato via PCIe offre:
 | Endurance (TBW) | Non specificata | 100-600 TBW |
 | Wear leveling | Base | Avanzato con controller dedicato |
 
-> **Il Raspberry Pi 5 ha un bus PCIe 2.0 x1**, quindi le velocita' effettive saranno limitate a ~400-500 MB/s sequenziali. Tuttavia, il vantaggio sulle IOPS random resta enorme e l'endurance e' incomparabilmente superiore.
+> **Il Raspberry Pi 5 ha un bus PCIe 2.0 x1**, quindi le velocità effettive saranno limitate a ~400-500 MB/s sequenziali. Tuttavia, il vantaggio sulle IOPS random resta enorme e l'endurance è incomparabilmente superiore.
 
 ### Due strategie di migrazione
 
@@ -34,7 +36,7 @@ Un SSD NVMe collegato via PCIe offre:
 Il sistema operativo resta sulla MicroSD, ma tutti i dati Docker (immagini, container, volumi, log) vengono spostati sull'NVMe.
 
 Vantaggi:
-- Semplicita': se qualcosa va storto, basta togliere la SD e riflasharla
+- Semplicità: se qualcosa va storto, basta togliere la SD e riflasharla
 - L'OS sulla SD ha un carico I/O minimo (solo boot e comandi di sistema)
 - Tutto il carico pesante (SIEM, Honeypot, VPN) gira sull'NVMe
 
@@ -48,7 +50,7 @@ Per implementare questa opzione, dopo aver installato Docker (sezione Docker & P
 
 #### Opzione B - Boot diretto da NVMe (Pro)
 
-Il sistema operativo viene clonato o installato direttamente sull'NVMe. La MicroSD non serve piu' per il boot.
+Il sistema operativo viene clonato o installato direttamente sull'NVMe. La MicroSD non serve più per il boot.
 
 Vantaggi:
 - Prestazioni massime per tutto il sistema
@@ -74,7 +76,7 @@ sudo rpi-eeprom-config --edit
 
 L'ordine `0xf416` significa: prova prima NVMe, poi SD, poi USB. Se nessuno ha un OS valido, riparti dall'inizio.
 
-> **La mia scelta:** Ho optato per l'Opzione B (boot da NVMe). Il motivo principale e' che Wazuh Indexer genera un volume di I/O talmente elevato che anche avere solo l'OS sulla SD causava rallentamenti durante i picchi di ingestione log. Con tutto su NVMe, il sistema e' stabile e reattivo anche sotto carico.
+> **La mia scelta:** Ho optato per l'Opzione B (boot da NVMe). Il motivo principale è che Wazuh Indexer genera un volume di I/O talmente elevato che anche avere solo l'OS sulla SD causava rallentamenti durante i picchi di ingestione log. Con tutto su NVMe, il sistema è stabile e reattivo anche sotto carico.
 
 ---
 
