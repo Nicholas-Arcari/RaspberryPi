@@ -1,14 +1,16 @@
+>  [English](integrazione-wazuh.en.md) |  **Italiano**
+
 # Verifica integrazione Wazuh - File Integrity Monitoring
 
-Se Wazuh e' installato (vedi sezione [SOC Analyst/Wazuh](../../SOC%20Analyst/Wazuh/README.md)), possiamo verificare che il modulo **Syscheck (File Integrity Monitoring)** stia monitorando il sistema.
+Se Wazuh è installato (vedi sezione [SOC Analyst/Wazuh](../../SOC%20Analyst/Wazuh/README.md)), possiamo verificare che il modulo **Syscheck (File Integrity Monitoring)** stia monitorando il sistema.
 
 ---
 
-## Cos'e' il File Integrity Monitoring (FIM)
+## Cos'è il File Integrity Monitoring (FIM)
 
-FIM calcola l'hash crittografico (SHA-256) di ogni file nelle directory monitorate (es. `/etc`, `/usr/bin`). Periodicamente, ricalcola gli hash e confronta. Se un file e' stato modificato, creato o eliminato, Wazuh genera un alert.
+FIM calcola l'hash crittografico (SHA-256) di ogni file nelle directory monitorate (es. `/etc`, `/usr/bin`). Periodicamente, ricalcola gli hash e confronta. Se un file è stato modificato, creato o eliminato, Wazuh genera un alert.
 
-**Perche' e' critico:** Se un attaccante modifica `/etc/passwd`, `/etc/shadow`, `/etc/ssh/sshd_config` o un binario di sistema, Wazuh lo rileva. Questo e' fondamentale per individuare compromissioni post-exploitation.
+**Perchè è critico:** Se un attaccante modifica `/etc/passwd`, `/etc/shadow`, `/etc/ssh/sshd_config` o un binario di sistema, Wazuh lo rileva. Questo è fondamentale per individuare compromissioni post-exploitation.
 
 ---
 
@@ -47,7 +49,7 @@ sudo touch /etc/test-wazuh
 sudo tail -f /var/ossec/logs/ossec.log
 ```
 
-Entro pochi minuti (dipende dall'intervallo di scan configurato), vedrai un evento FIM nei log. L'alert comparira' anche nella Dashboard Wazuh sotto **Security Events**.
+Entro pochi minuti (dipende dall'intervallo di scan configurato), vedrai un evento FIM nei log. L'alert comparirà anche nella Dashboard Wazuh sotto **Security Events**.
 
 ```bash
 # Pulizia dopo il test
