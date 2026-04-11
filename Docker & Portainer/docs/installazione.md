@@ -1,3 +1,5 @@
+>  [English](installazione.en.md) |  **Italiano**
+
 # Installazione di Docker su Raspberry Pi 5 con OMV
 
 ## Step 1: Controllo iniziale
@@ -21,7 +23,7 @@ sudo apt autoremove --purge -y
 
 ### Il finto "freeze" durante la rimozione
 
-Sul Raspberry Pi, la rimozione di Docker CE puo' sembrare bloccata (la barra di avanzamento resta ferma al 5-23% per diversi minuti). Questo e' **normale**: dpkg sta fermando i container attivi, smontando i filesystem overlay e rimuovendo le regole iptables create da Docker. Non interrompere il processo.
+Sul Raspberry Pi, la rimozione di Docker CE può sembrare bloccata (la barra di avanzamento resta ferma al 5-23% per diversi minuti). Questo è **normale**: dpkg sta fermando i container attivi, smontando i filesystem overlay e rimuovendo le regole iptables create da Docker. Non interrompere il processo.
 
 Se sospetti che sia davvero bloccato, apri un'altra sessione SSH e verifica:
 
@@ -33,7 +35,7 @@ ps aux | grep dpkg
 ls -l /var/lib/dpkg/lock*
 ```
 
-Se `dpkg` non e' in esecuzione ma i lock file esistono, il processo e' stato interrotto in modo anomalo. Recupera con:
+Se `dpkg` non è in esecuzione ma i lock file esistono, il processo è stato interrotto in modo anomalo. Recupera con:
 
 ```bash
 sudo dpkg --configure -a
@@ -42,7 +44,7 @@ sudo apt -f install
 
 ---
 
-## Step 3: Perche' `docker.io` e NON `docker-ce`
+## Step 3: Perchè `docker.io` e NON `docker-ce`
 
 Esistono due "distribuzioni" di Docker per Linux:
 
@@ -51,10 +53,10 @@ Esistono due "distribuzioni" di Docker per Linux:
 | **Fonte** | Repository ufficiale Docker | Repository Debian |
 | **Installazione** | `get.docker.com` script | `apt install docker.io` |
 | **Aggiornamenti** | Frequenti, a volte breaking | Allineati ai cicli Debian stable |
-| **Compatibilita' OMV** | Conflitti con systemd/nginx | Testato e stabile |
+| **Compatibilità OMV** | Conflitti con systemd/nginx | Testato e stabile |
 | **Versione Docker Compose** | Plugin integrato (`docker compose`) | Pacchetto separato (`docker-compose`) |
 
-**Per un Raspberry Pi con OMV, `docker.io` e' la scelta corretta.** Il pacchetto Docker CE da script talvolta installa versioni di `containerd` che confliggono con le unit systemd di OMV, causando errori di avvio dopo un reboot. Il pacchetto Debian e' piu' conservativo e si integra meglio con il sistema.
+**Per un Raspberry Pi con OMV, `docker.io` è la scelta corretta.** Il pacchetto Docker CE da script talvolta installa versioni di `containerd` che confliggono con le unit systemd di OMV, causando errori di avvio dopo un reboot. Il pacchetto Debian è più conservativo e si integra meglio con il sistema.
 
 ### Installazione
 
@@ -74,10 +76,10 @@ Cosa fanno questi comandi:
 
 ## Step 4: Permessi utente
 
-Per default, il socket Docker (`/var/run/docker.sock`) e' accessibile solo da `root` e dal gruppo `docker`. Per usare Docker senza `sudo`:
+Per default, il socket Docker (`/var/run/docker.sock`) è accessibile solo da `root` e dal gruppo `docker`. Per usare Docker senza `sudo`:
 
 ```bash
-# Crea il gruppo docker (potrebbe gia' esistere)
+# Crea il gruppo docker (potrebbe già esistere)
 sudo groupadd docker 2>/dev/null
 
 # Aggiungi il tuo utente al gruppo
@@ -86,7 +88,7 @@ sudo usermod -aG docker $USER
 
 Dopo questo comando, **esegui logout e login via SSH** (oppure `newgrp docker` per applicare il cambio nella sessione corrente).
 
-> **Nota di sicurezza:** Aggiungere un utente al gruppo `docker` equivale a dargli accesso root sull'host. Chiunque possa eseguire `docker run` puo' montare qualsiasi directory dell'host (inclusa `/etc/shadow`) all'interno di un container privilegiato. Non aggiungere utenti non fidati al gruppo docker.
+> **Nota di sicurezza:** Aggiungere un utente al gruppo `docker` equivale a dargli accesso root sull'host. Chiunque possa eseguire `docker run` può montare qualsiasi directory dell'host (inclusa `/etc/shadow`) all'interno di un container privilegiato. Non aggiungere utenti non fidati al gruppo docker.
 
 ### Verifica
 
@@ -95,7 +97,7 @@ docker version    # Deve mostrare sia Client che Server (daemon)
 docker run hello-world  # Deve scaricare l'immagine ed eseguire il container
 ```
 
-Se `docker version` mostra solo il Client e da' errore sul Server, il daemon non e' in esecuzione:
+Se `docker version` mostra solo il Client e dà errore sul Server, il daemon non è in esecuzione:
 
 ```bash
 sudo systemctl status docker
