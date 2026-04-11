@@ -1,3 +1,5 @@
+>  [English](configurazione-omv.en.md) |  **Italiano**
+
 # Step 4: Configurazione OMV - Passo per Passo
 
 ## 4.1 Gestione Dischi
@@ -10,21 +12,21 @@ Nell'immagine si vede:
 - `/dev/mmcblk0` - la MicroSD da 58.30 GiB (boot)
 - `/dev/nvme0n1` - l'NVMe Patriot M.2 P320 256GB (storage NAS)
 
-Da questa vista puoi anche controllare lo stato **SMART** del disco cliccando sull'icona dell'ingranaggio. SMART (Self-Monitoring, Analysis and Reporting Technology) e' un sistema di diagnostica integrato in ogni SSD/HDD che monitora parametri come:
+Da questa vista puoi anche controllare lo stato **SMART** del disco cliccando sull'icona dell'ingranaggio. SMART (Self-Monitoring, Analysis and Reporting Technology) è un sistema di diagnostica integrato in ogni SSD/HDD che monitora parametri come:
 
-- **Temperature**: un NVMe in un case chiuso puo' surriscaldarsi - sopra i 70C le prestazioni calano (thermal throttling)
+- **Temperature**: un NVMe in un case chiuso può surriscaldarsi - sopra i 70C le prestazioni calano (thermal throttling)
 - **Percentage Used**: indica quanta vita residua ha l'SSD basandosi sui cicli di scrittura consumati
 - **Media Errors**: errori non correggibili nella NAND - se questo numero cresce, il disco sta morendo
 
 ## 4.2 Gestione Filesystem
 
-Vai su **Storage → File Systems**. Se hai formattato il disco da CLI (Step 2), vedrai la partizione EXT4 gia' presente. Altrimenti, puoi crearla da qui.
+Vai su **Storage → File Systems**. Se hai formattato il disco da CLI (Step 2), vedrai la partizione EXT4 già presente. Altrimenti, puoi crearla da qui.
 
 ![OMV - Gestione filesystem: partizioni montate e disponibili](../img/omv-filesystems.jpg)
 
-Seleziona la partizione NVMe e clicca **Mount**. OMV aggiungera' automaticamente l'entry in `/etc/fstab` per il mount persistente al boot.
+Seleziona la partizione NVMe e clicca **Mount**. OMV aggiungerà automaticamente l'entry in `/etc/fstab` per il mount persistente al boot.
 
-> **Dettaglio tecnico:** OMV monta i filesystem in `/srv/dev-disk-by-uuid/<UUID>`. Usa l'UUID (Universally Unique Identifier) invece del device name (`/dev/nvme0n1p1`) perche' i device name possono cambiare se aggiungi altri dischi, mentre l'UUID e' legato al filesystem ed e' immutabile.
+> **Dettaglio tecnico:** OMV monta i filesystem in `/srv/dev-disk-by-uuid/<UUID>`. Usa l'UUID (Universally Unique Identifier) invece del device name (`/dev/nvme0n1p1`) perchè i device name possono cambiare se aggiungi altri dischi, mentre l'UUID è legato al filesystem ed è immutabile.
 
 ## 4.3 Cartelle Condivise (Shared Folders)
 
@@ -51,7 +53,7 @@ OMV gestisce le ACL tramite la web UI, ma sotto il cofano usa i comandi `setfacl
 
 ## 4.4 Protocollo SMB/CIFS (per Windows e macOS)
 
-**SMB (Server Message Block)** e' il protocollo nativo di Windows per la condivisione file. La versione moderna (SMB 3.x) supporta crittografia del trasporto, firma digitale dei pacchetti e autenticazione NTLM/Kerberos.
+**SMB (Server Message Block)** è il protocollo nativo di Windows per la condivisione file. La versione moderna (SMB 3.x) supporta crittografia del trasporto, firma digitale dei pacchetti e autenticazione NTLM/Kerberos.
 
 ### Abilitazione del servizio
 
@@ -62,7 +64,7 @@ Vai su **Services → SMB/CIFS → Settings** e abilita il servizio.
 Parametri importanti:
 
 - **Workgroup**: deve corrispondere a quello dei client Windows (default: `WORKGROUP`)
-- **Min Protocol/Max Protocol**: SMB2 come minimo - SMB1 e' deprecato e vulnerabile (EternalBlue, WannaCry)
+- **Min Protocol/Max Protocol**: SMB2 come minimo - SMB1 è deprecato e vulnerabile (EternalBlue, WannaCry)
 
 ### Creazione della condivisione
 
@@ -72,13 +74,13 @@ Vai su **Services → SMB/CIFS → Shares** e aggiungi una nuova condivisione co
 
 ## 4.5 Protocollo NFS (per Linux e macOS)
 
-**NFS (Network File System)** e' il protocollo nativo di condivisione file nel mondo UNIX/Linux. A differenza di SMB, NFS non ha un concetto nativo di "utente e password" per l'autenticazione - controlla l'accesso in base all'**indirizzo IP o subnet** del client.
+**NFS (Network File System)** è il protocollo nativo di condivisione file nel mondo UNIX/Linux. A differenza di SMB, NFS non ha un concetto nativo di "utente e password" per l'autenticazione - controlla l'accesso in base all'**indirizzo IP o subnet** del client.
 
 | Aspetto | SMB | NFS |
 |---|---|---|
 | Autenticazione | Username + Password | IP/subnet-based |
 | Cifratura | SMB 3.x supporta AES | NFSv4 con Kerberos (raro in home lab) |
-| Overhead | Maggiore (negoziazione sessione) | Minore (piu' vicino al filesystem) |
+| Overhead | Maggiore (negoziazione sessione) | Minore (più vicino al filesystem) |
 | Caso d'uso | Client Windows/Mac misti | Client Linux/Mac puri |
 
 ### Abilitazione del servizio
@@ -111,11 +113,11 @@ Aprire Esplora File e digitare nella barra degli indirizzi:
 
 ![Accesso alla condivisione NAS da Windows - barra degli indirizzi](../img/windows-network-path.jpg)
 
-Windows chiedera' le credenziali:
+Windows chiederà le credenziali:
 
 ![Richiesta credenziali per accesso SMB](../img/windows-login.jpg)
 
-Inserire username e password dell'utente creato in OMV (NON `admin` - quell'utente e' solo per la web UI).
+Inserire username e password dell'utente creato in OMV (NON `admin` - quell'utente è solo per la web UI).
 
 ### Da Linux
 
@@ -133,6 +135,6 @@ Controllare i permessi utente nella sezione **Access Rights Management → Users
 
 ![OMV - Gestione permessi utente sulle cartelle condivise](../img/omv-user-permissions.jpg)
 
-Se tutto e' configurato correttamente, vedrai i file condivisi accessibili dai client:
+Se tutto è configurato correttamente, vedrai i file condivisi accessibili dai client:
 
 ![Condivisione NAS accessibile e funzionante da Windows](../img/nas-access-success.jpg)
