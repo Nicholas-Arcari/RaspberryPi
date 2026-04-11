@@ -1,3 +1,5 @@
+>  [English](installazione-omv.en.md) |  **Italiano**
+
 # Step 3: Installazione di OpenMediaVault
 
 ## Prerequisiti
@@ -36,4 +38,4 @@ Credenziali di default:
 | Username | `admin` |
 | Password | `openmediavault` |
 
-> **Primo passo obbligatorio:** Cambiare la password admin immediatamente. Vai su **User Settings** (icona ingranaggio in alto a destra) e aggiorna la password. Chiunque sulla tua rete locale puo' accedere alla porta 80 senza autenticazione pregressa.
+> **Primo passo obbligatorio:** Cambiare la password admin immediatamente. Vai su **User Settings** (icona ingranaggio in alto a destra) e aggiorna la password. Chiunque sulla tua rete locale può accedere alla porta 80 senza autenticazione pregressa.
