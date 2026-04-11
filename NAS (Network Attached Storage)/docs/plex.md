@@ -1,8 +1,10 @@
+>  [English](plex.en.md) |  **Italiano**
+
 # Step 5: Plex Media Server (Opzionale)
 
 Plex permette di fare streaming dei media presenti sul NAS verso qualsiasi dispositivo (TV, smartphone, tablet).
 
-> **Avvertenza sulle prestazioni:** Plex su Raspberry Pi 5 funziona bene in modalita' **Direct Play** (il client supporta il formato originale del file). Se il client richiede **transcoding** (conversione del formato in tempo reale), la CPU ARM quad-core A76 si saturera' rapidamente, specialmente con video 4K. Consiglio: usare formati compatibili (H.264/AAC in container MP4/MKV) e client che supportano Direct Play.
+> **Avvertenza sulle prestazioni:** Plex su Raspberry Pi 5 funziona bene in modalità **Direct Play** (il client supporta il formato originale del file). Se il client richiede **transcoding** (conversione del formato in tempo reale), la CPU ARM quad-core A76 si saturerà rapidamente, specialmente con video 4K. Consiglio: usare formati compatibili (H.264/AAC in container MP4/MKV) e client che supportano Direct Play.
 
 ## Installazione
 
@@ -39,6 +41,6 @@ Da qui potrai aggiungere le librerie media puntando alle cartelle condivise del 
 ## Consigli di manutenzione
 
 - **Dopo aggiornamenti kernel o firmware**: ricontrollare che l'NVMe sia visibile con `lsblk`
-- **Non rimuovere la MicroSD** finche' il boot da NVMe non e' confermato funzionante
-- **Monitorare SMART regolarmente**: un NVMe in un case chiuso puo' raggiungere temperature critiche; considerare un dissipatore o il case ufficiale con ventola
+- **Non rimuovere la MicroSD** finchè il boot da NVMe non è confermato funzionante
+- **Monitorare SMART regolarmente**: un NVMe in un case chiuso può raggiungere temperature critiche; considerare un dissipatore o il case ufficiale con ventola
 - **Backup delle configurazioni OMV**: esportare periodicamente la configurazione da System → Backup
