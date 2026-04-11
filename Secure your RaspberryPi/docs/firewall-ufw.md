@@ -1,12 +1,14 @@
+>  [English](firewall-ufw.en.md) |  **Italiano**
+
 # Firewall con UFW e Deep Dive netfilter/iptables
 
-**UFW (Uncomplicated Firewall)** e' un frontend per `iptables` (o `nftables` su Debian 12+) che semplifica la gestione delle regole di filtraggio del traffico di rete.
+**UFW (Uncomplicated Firewall)** è un frontend per `iptables` (o `nftables` su Debian 12+) che semplifica la gestione delle regole di filtraggio del traffico di rete.
 
 ---
 
 ## Come funziona a basso livello: netfilter e iptables
 
-UFW e' un'interfaccia semplificata per **iptables**, che a sua volta e' il frontend userspace di **netfilter** - il framework di packet filtering integrato nel kernel Linux. Per capire perche' l'ordine delle regole UFW conta (e debuggare quando qualcosa non funziona), serve capire l'architettura sottostante.
+UFW è un'interfaccia semplificata per **iptables**, che a sua volta è il frontend userspace di **netfilter** - il framework di packet filtering integrato nel kernel Linux. Per capire perchè l'ordine delle regole UFW conta (e debuggare quando qualcosa non funziona), serve capire l'architettura sottostante.
 
 ### I 5 hook points di netfilter
 
@@ -31,7 +33,7 @@ in ingresso                  decision                decision                  r
 | Hook | Quando si attiva | Uso tipico |
 |---|---|---|
 | `PREROUTING` | Appena il pacchetto arriva, prima di qualsiasi decisione di routing | DNAT (port forwarding), modifica IP destinazione |
-| `INPUT` | Dopo il routing, se il pacchetto e' destinato a un processo locale | **Firewall in ingresso** - dove UFW opera principalmente |
+| `INPUT` | Dopo il routing, se il pacchetto è destinato a un processo locale | **Firewall in ingresso** - dove UFW opera principalmente |
 | `FORWARD` | Se il pacchetto deve essere inoltrato a un'altra interfaccia (il host fa da router) | Firewall per traffico in transito (es. container Docker) |
 | `OUTPUT` | Generato da un processo locale, prima del routing in uscita | Firewall in uscita (raramente usato) |
 | `POSTROUTING` | Dopo il routing, appena prima di uscire dall'interfaccia | SNAT/MASQUERADE (usato da WireGuard per il NAT dei client VPN) |
@@ -49,7 +51,7 @@ Le regole non sono tutte nello stesso "contenitore". iptables le organizza in **
 
 ### Connection Tracking (conntrack): firewall stateful
 
-iptables (e quindi UFW) e' un **firewall stateful** - non valuta ogni pacchetto in isolamento, ma tiene traccia delle **connessioni**.
+iptables (e quindi UFW) è un **firewall stateful** - non valuta ogni pacchetto in isolamento, ma tiene traccia delle **connessioni**.
 
 Verifica pratica - mostra le connessioni tracciate dal kernel:
 
@@ -71,11 +73,11 @@ Il kernel traccia lo **stato** di ogni connessione:
 | Stato | Significato | Esempio |
 |---|---|---|
 | `NEW` | Primo pacchetto di una connessione mai vista | SYN TCP, prima query DNS UDP |
-| `ESTABLISHED` | Pacchetto parte di una connessione gia' aperta | Pacchetti successivi al SYN-ACK |
+| `ESTABLISHED` | Pacchetto parte di una connessione già aperta | Pacchetti successivi al SYN-ACK |
 | `RELATED` | Nuova connessione correlata a una esistente | Messaggio ICMP "port unreachable" in risposta a una connessione |
 | `INVALID` | Pacchetto che non appartiene a nessuna connessione nota | Pacchetti malformati, scan TCP anomali |
 
-**Perche' conta:** Quando UFW fa `default deny incoming`, in realta' blocca solo i pacchetti `NEW` in ingresso (nuove connessioni dall'esterno). I pacchetti `ESTABLISHED` e `RELATED` passano - altrimenti non potresti ricevere le risposte alle tue richieste (es. navigare web, fare apt update). Questo e' implementato dalla regola automatica:
+**Perchè conta:** Quando UFW fa `default deny incoming`, in realtà blocca solo i pacchetti `NEW` in ingresso (nuove connessioni dall'esterno). I pacchetti `ESTABLISHED` e `RELATED` passano - altrimenti non potresti ricevere le risposte alle tue richieste (es. navigare web, fare apt update). Questo è implementato dalla regola automatica:
 
 ```
 -A ufw-before-input -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
@@ -117,13 +119,13 @@ Chain INPUT:
   6. ufw-track-input             <-- Tracking
 
 Chain ufw-before-input (regole automatiche, NON modificabili da ufw):
-  1. ACCEPT conntrack RELATED,ESTABLISHED  <-- Risposte a connessioni gia' aperte
+  1. ACCEPT conntrack RELATED,ESTABLISHED  <-- Risposte a connessioni già aperte
   2. ACCEPT loopback (127.0.0.1)           <-- Traffico locale
   3. DROP conntrack INVALID                <-- Pacchetti malformati
   4. -> ufw-user-input                     <-- Le TUE regole (ufw allow/deny)
 ```
 
-Questo spiega perche' l'ordine delle regole UFW e' critico e perche' `ESTABLISHED` passa sempre: la regola conntrack e' **prima** delle regole utente nella chain.
+Questo spiega perchè l'ordine delle regole UFW è critico e perchè `ESTABLISHED` passa sempre: la regola conntrack è **prima** delle regole utente nella chain.
 
 ---
 
@@ -143,7 +145,7 @@ sudo ufw allow ssh
 sudo ufw enable
 ```
 
-> **ATTENZIONE:** Esegui `sudo ufw allow ssh` PRIMA di `sudo ufw enable`. Se attivi il firewall senza permettere SSH, perderai l'accesso al Pi. L'unico modo per recuperare sara' collegare monitor e tastiera fisici, o riflashare la SD.
+> **ATTENZIONE:** Esegui `sudo ufw allow ssh` PRIMA di `sudo ufw enable`. Se attivi il firewall senza permettere SSH, perderai l'accesso al Pi. L'unico modo per recuperare sarà collegare monitor e tastiera fisici, o riflashare la SD.
 
 ---
 
