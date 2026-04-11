@@ -1,3 +1,5 @@
+>  [English](preparazione-nvme.en.md) |  **Italiano**
+
 # Step 1: Rilevamento e Preparazione dell'NVMe
 
 ## Verifica che il kernel rilevi il disco
