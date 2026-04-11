@@ -1,3 +1,5 @@
+>  [English](fail2ban.en.md) |  **Italiano**
+
 # Fail2ban - Protezione Brute Force
 
 **Fail2ban** monitora i log di sistema (es. `/var/log/auth.log`) alla ricerca di pattern di attacco (tentativi di login falliti) e banna automaticamente gli IP offensivi tramite regole firewall.
@@ -62,4 +64,4 @@ findtime = 600     # Finestra di 10 minuti
 bantime = 3600     # Ban per 1 ora
 ```
 
-> **Integrazione con Wazuh:** Fail2ban e Wazuh non sono in conflitto - si complementano. Fail2ban agisce (banna l'IP), Wazuh osserva e alerta (ti notifica dell'attacco). Wazuh legge i log di Fail2ban e genera alert quando un IP viene bannato, dandoti visibilita' centralizzata.
+> **Integrazione con Wazuh:** Fail2ban e Wazuh non sono in conflitto - si complementano. Fail2ban agisce (banna l'IP), Wazuh osserva e alerta (ti notifica dell'attacco). Wazuh legge i log di Fail2ban e genera alert quando un IP viene bannato, dandoti visibilità centralizzata.
