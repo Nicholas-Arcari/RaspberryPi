@@ -1,8 +1,10 @@
+>  [English](primo-accesso.en.md) |  **Italiano**
+
 # Primo Accesso e Aggiornamento del Sistema
 
 ## Step 2: Primo Accesso via SSH
 
-Inserire la MicroSD nel Raspberry Pi, collegare il cavo Ethernet e l'alimentazione. Attendere ~60 secondi per il primo boot (il primo avvio e' piu' lento perche' espande il filesystem e applica le customizzazioni).
+Inserire la MicroSD nel Raspberry Pi, collegare il cavo Ethernet e l'alimentazione. Attendere ~60 secondi per il primo boot (il primo avvio è più lento perchè espande il filesystem e applica le customizzazioni).
 
 ### Individuare l'IP del Raspberry
 
@@ -22,7 +24,7 @@ arp -a
 ssh pi@<IP_DEL_RASPBERRY>
 ```
 
-Al primo collegamento, SSH chiedera' di confermare il fingerprint del server:
+Al primo collegamento, SSH chiederà di confermare il fingerprint del server:
 
 ```
 The authenticity of host '192.168.0.102 (192.168.0.102)' can't be established.
@@ -34,7 +36,7 @@ Are you sure you want to continue connecting (yes/no/[fingerprint])?
 
 ### Il temuto "REMOTE HOST IDENTIFICATION HAS CHANGED"
 
-Se dopo una reinstallazione dell'OS, una reflash della SD o un cambio di dispositivo sullo stesso IP, SSH mostrera':
+Se dopo una reinstallazione dell'OS, una reflash della SD o un cambio di dispositivo sullo stesso IP, SSH mostrerà:
 
 ```
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -43,15 +45,15 @@ Se dopo una reinstallazione dell'OS, una reflash della SD o un cambio di disposi
 IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
 ```
 
-**Cosa sta succedendo:** SSH ha confrontato la chiave pubblica presentata dal server con quella salvata in `known_hosts` e ha trovato una discrepanza. Questo e' esattamente il meccanismo che protegge da un attacco **Man-in-the-Middle (MitM)**: se un attaccante si interponesse tra te e il server, presenterebbe una chiave diversa e SSH bloccherebbe la connessione.
+**Cosa sta succedendo:** SSH ha confrontato la chiave pubblica presentata dal server con quella salvata in `known_hosts` e ha trovato una discrepanza. Questo è esattamente il meccanismo che protegge da un attacco **Man-in-the-Middle (MitM)**: se un attaccante si interponesse tra te e il server, presenterebbe una chiave diversa e SSH bloccherebbe la connessione.
 
-Nel nostro caso, sappiamo che il cambio di chiave e' legittimo (abbiamo reinstallato l'OS), quindi possiamo rimuovere la vecchia entry:
+Nel nostro caso, sappiamo che il cambio di chiave è legittimo (abbiamo reinstallato l'OS), quindi possiamo rimuovere la vecchia entry:
 
 ```bash
 ssh-keygen -R <IP_DEL_RASPBERRY>
 ```
 
-Questo comando rimuove la riga corrispondente a quell'IP dal file `~/.ssh/known_hosts`. La prossima connessione chiedera' di nuovo di accettare il nuovo fingerprint.
+Questo comando rimuove la riga corrispondente a quell'IP dal file `~/.ssh/known_hosts`. La prossima connessione chiederà di nuovo di accettare il nuovo fingerprint.
 
 > **Attenzione:** Se non hai reinstallato nulla e vedi questo avviso, **fermati e indaga**. Potrebbe essere un vero attacco MitM, un ARP spoofing sulla rete locale, o un altro dispositivo che ha preso lo stesso IP.
 
@@ -66,9 +68,9 @@ sudo apt update && sudo apt full-upgrade -y
 sudo reboot
 ```
 
-**Perche' `full-upgrade` e non `upgrade`:**
+**Perchè `full-upgrade` e non `upgrade`:**
 
 - `apt upgrade`: aggiorna solo i pacchetti che non richiedono la rimozione o l'installazione di nuovi pacchetti
 - `apt full-upgrade`: aggiorna tutto, anche se richiede di rimuovere pacchetti obsoleti o installarne di nuovi (necessario per aggiornamenti del kernel e delle librerie di sistema)
 
-Su un sistema appena installato, `full-upgrade` garantisce di avere tutte le patch di sicurezza piu' recenti, incluse quelle del kernel.
+Su un sistema appena installato, `full-upgrade` garantisce di avere tutte le patch di sicurezza più recenti, incluse quelle del kernel.
