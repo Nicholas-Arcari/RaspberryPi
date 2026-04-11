@@ -1,3 +1,5 @@
+>  [English](README.en.md) |  **Italiano**
+
 # First Setup - Installazione e Configurazione Iniziale del Raspberry Pi 5
 
 Questa guida copre tutto il necessario per portare un Raspberry Pi 5 da "scatola appena aperta" a "sistema operativo funzionante con boot da NVMe". Include i problemi reali che ho incontrato e come li ho risolti.
