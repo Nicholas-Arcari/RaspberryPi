@@ -1,6 +1,8 @@
+>  [English](sicurezza-container.en.md) |  **Italiano**
+
 # Deep Dive: Sicurezza dei Container
 
-Docker non e' sicuro "out of the box". I container condividono il kernel con l'host - un exploit kernel dentro un container = compromissione dell'host. Ecco i meccanismi di difesa attivi di default e come verificarli.
+Docker non è sicuro "out of the box". I container condividono il kernel con l'host - un exploit kernel dentro un container = compromissione dell'host. Ecco i meccanismi di difesa attivi di default e come verificarli.
 
 ## Storage Driver: overlay2
 
@@ -23,8 +25,8 @@ Image Layer 1 (read-only)        ← Layer base (es. debian:bookworm)
 ```
 
 Overlay2 sovrappone (overlay) i layer con un meccanismo copy-on-write:
-- Quando un container legge un file, overlay2 cerca il file partendo dal layer piu' alto verso il basso
-- Quando un container **modifica** un file, overlay2 copia il file nel layer scrivibile (upperdir) e applica la modifica li' - il layer originale resta intatto
+- Quando un container legge un file, overlay2 cerca il file partendo dal layer più alto verso il basso
+- Quando un container **modifica** un file, overlay2 copia il file nel layer scrivibile (upperdir) e applica la modifica lì - il layer originale resta intatto
 - Quando un container viene rimosso, solo il layer scrivibile viene eliminato - i layer dell'immagine restano condivisi
 
 Su disco, i layer sono in `/var/lib/docker/overlay2/`. Puoi verificare lo spazio usato:
@@ -39,9 +41,9 @@ docker system df
 
 ## Seccomp: Filtro delle syscall
 
-**Seccomp (Secure Computing Mode)** limita le syscall che un processo puo' eseguire. Docker applica un profilo seccomp di default che blocca ~44 syscall considerate pericolose:
+**Seccomp (Secure Computing Mode)** limita le syscall che un processo può eseguire. Docker applica un profilo seccomp di default che blocca ~44 syscall considerate pericolose:
 
-| Syscall bloccata | Perche' |
+| Syscall bloccata | Perchè |
 |---|---|
 | `mount` | Impedisce al container di montare filesystem dell'host |
 | `reboot` | Impedisce al container di riavviare il sistema |
@@ -60,7 +62,7 @@ docker inspect <container> | grep -i seccomp
 Per vedere il profilo completo:
 
 ```bash
-# Il profilo di default e' compilato nel daemon Docker
+# Il profilo di default è compilato nel daemon Docker
 # Per esportarlo:
 docker info --format '{{.SecurityOptions}}'
 # [name=seccomp,profile=builtin ...]
@@ -107,7 +109,7 @@ Capabilities concesse di default:
 
 Capabilities **non** concesse (rilevanti per sicurezza):
 
-| Capability | Perche' non concessa |
+| Capability | Perchè non concessa |
 |---|---|
 | `SYS_ADMIN` | Troppo ampia - equivale quasi a root |
 | `NET_ADMIN` | Modifica interfacce di rete dell'host |
@@ -116,7 +118,7 @@ Capabilities **non** concesse (rilevanti per sicurezza):
 
 > **Nei nostri container:** Pi-hole e WireGuard richiedono `NET_ADMIN` (per gestire interfacce di rete e regole iptables). WireGuard richiede anche `SYS_MODULE` (per caricare il modulo kernel WireGuard). Queste eccezioni sono documentate nei rispettivi Docker Compose con `cap_add`. Non aggiungere capabilities non necessarie.
 
-## Riepilogo: difesa in profondita' dei container
+## Riepilogo: difesa in profondità dei container
 
 ```
 [Processo nel container]
