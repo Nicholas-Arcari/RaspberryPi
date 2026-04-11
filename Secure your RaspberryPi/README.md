@@ -1,8 +1,10 @@
+>  [English](README.en.md) |  **Italiano**
+
 # Hardening del Raspberry Pi - Guida alla Messa in Sicurezza
 
-Un Raspberry Pi esposto su rete (anche solo LAN) con servizi attivi e' un bersaglio. Questa guida copre le misure di sicurezza fondamentali che ho applicato al mio sistema, spiegando non solo il "come" ma il "perche'" di ogni configurazione.
+Un Raspberry Pi esposto su rete (anche solo LAN) con servizi attivi è un bersaglio. Questa guida copre le misure di sicurezza fondamentali che ho applicato al mio sistema, spiegando non solo il "come" ma il "perche'" di ogni configurazione.
 
-La filosofia e' **defense in depth**: nessuna singola misura e' sufficiente, ma la combinazione di piu' livelli rende l'attacco significativamente piu' difficile.
+La filosofia è **defense in depth**: nessuna singola misura è sufficiente, ma la combinazione di più livelli rende l'attacco significativamente più difficile.
 
 ---
 
@@ -27,10 +29,10 @@ La filosofia e' **defense in depth**: nessuna singola misura e' sufficiente, ma 
 | **Fail2ban** | Ban automatico IP | Bot e scanner automatici |
 | **UFW** | Firewall con policy deny-by-default | Scansioni di porta, accessi non autorizzati |
 | **sysctl** | Hardening kernel (rete + memoria) | SYN flood, IP spoofing, buffer overflow |
-| **Unattended Upgrades** | Patch automatiche | Vulnerabilita' note (CVE) |
+| **Unattended Upgrades** | Patch automatiche | Vulnerabilità note (CVE) |
 | **Wazuh FIM** | Integrity monitoring | Modifiche non autorizzate ai file di sistema |
 
-Wazuh iniziera' a generare alert per:
+Wazuh inizierà a generare alert per:
 
 - Tentativi SSH falliti (rule.id: 5710, 5712)
 - Ban di Fail2ban (rule.id: 87101-87105)
