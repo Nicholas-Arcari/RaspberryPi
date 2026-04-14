@@ -1,6 +1,8 @@
-# Teoria: Cos'e' un Honeypot
+>  [English](teoria-honeypot.en.md) |  **Italiano**
 
-Un honeypot e' un sistema deliberatamente esposto e apparentemente vulnerabile, progettato per attirare attaccanti. Non contiene dati reali e non fa parte dell'infrastruttura produttiva - il suo unico scopo e' **osservare e registrare le tecniche di attacco**.
+# Teoria: Cos'è un Honeypot
+
+Un honeypot è un sistema deliberatamente esposto e apparentemente vulnerabile, progettato per attirare attaccanti. Non contiene dati reali e non fa parte dell'infrastruttura produttiva - il suo unico scopo è **osservare e registrare le tecniche di attacco**.
 
 ## Classificazione degli Honeypot
 
@@ -14,9 +16,9 @@ Un honeypot e' un sistema deliberatamente esposto e apparentemente vulnerabile, 
 
 **Cowrie** emula un server SSH e Telnet con un filesystem finto (basato su Debian). Quando un attaccante si collega:
 
-1. Puo' provare credenziali (brute force) - Cowrie accetta password comuni di proposito
+1. Può provare credenziali (brute force) - Cowrie accetta password comuni di proposito
 2. Una volta "dentro", crede di essere su un vero server Linux
-3. Puo' eseguire comandi (`ls`, `cat /etc/passwd`, `wget malware.exe`) - Cowrie simula le risposte
+3. Può eseguire comandi (`ls`, `cat /etc/passwd`, `wget malware.exe`) - Cowrie simula le risposte
 4. Se tenta di scaricare file (payload malevoli), Cowrie li cattura per analisi
 
 Ogni azione viene registrata in formato JSON nel file `cowrie.json`, con timestamp, IP sorgente, username, password, comandi eseguiti.
