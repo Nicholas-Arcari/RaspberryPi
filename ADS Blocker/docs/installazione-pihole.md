@@ -1,3 +1,5 @@
+>  [English](installazione-pihole.en.md) |  **Italiano**
+
 # Installazione Pi-hole con Docker e MacVLAN
 
 ## Il Problema: Conflitto della Porta 80
@@ -22,7 +24,7 @@ Questo installa Pi-hole "bare metal" (direttamente sul sistema operativo), causa
 
 Se per errore l'avessi fatto, ecco cosa vedresti - queste sono schermate dell'installer bare metal che **non** va usato nel nostro setup:
 
-![Installer bare metal di Pi-hole - selezione DNS upstream. Questa modalita' di installazione NON va usata con Docker](../img/pihole-baremetal-dns-warning.jpg)
+![Installer bare metal di Pi-hole - selezione DNS upstream. Questa modalità di installazione NON va usata con Docker](../img/pihole-baremetal-dns-warning.jpg)
 
 ![Installer bare metal completato - NON applicabile al nostro setup Docker](../img/pihole-baremetal-install-warning.jpg)
 
@@ -45,9 +47,9 @@ Nessun conflitto, nessun port mapping.
 | Raspberry Pi (Host) | `192.168.0.102` | NAS (OMV), Docker host |
 | Pi-hole (Container) | `192.168.0.250` | DNS sinkhole |
 | Subnet | `192.168.0.0/24` | Rete locale |
-| Interfaccia fisica RPi5 | `end0` | Ethernet (su RPi5 Bookworm e' `end0`, non `eth0`) |
+| Interfaccia fisica RPi5 | `end0` | Ethernet (su RPi5 Bookworm è `end0`, non `eth0`) |
 
-> **L'IP 192.168.0.250 deve essere fuori dal range DHCP del router.** Se il router assegna IP da `.100` a `.200`, il `.250` e' sicuro. Altrimenti, rischi che il router assegni lo stesso IP a un altro dispositivo, causando conflitti ARP.
+> **L'IP 192.168.0.250 deve essere fuori dal range DHCP del router.** Se il router assegna IP da `.100` a `.200`, il `.250` è sicuro. Altrimenti, rischi che il router assegni lo stesso IP a un altro dispositivo, causando conflitti ARP.
 
 ---
 
@@ -95,7 +97,7 @@ networks:
   pihole_net:
     driver: macvlan
     driver_opts:
-      parent: end0  # Verificare con 'ip link' - su RPi5 Bookworm e' end0, su RPi4 e' eth0
+      parent: end0  # Verificare con 'ip link' - su RPi5 Bookworm è end0, su RPi4 è eth0
     ipam:
       config:
         - subnet: 192.168.0.0/24
@@ -107,7 +109,7 @@ networks:
 
 - `parent: end0`: l'interfaccia fisica su cui Docker crea l'interfaccia virtuale MacVLAN
 - `ip_range: 192.168.0.248/29`: un piccolo range di 8 IP (`.248` a `.255`) riservato ai container MacVLAN. Questo evita che Docker assegni IP in conflitto con il DHCP del router
-- `cap_add: NET_ADMIN`: necessario perche' Pi-hole deve poter modificare la configurazione di rete (binding su porta 53, DHCP se abilitato)
+- `cap_add: NET_ADMIN`: necessario perchè Pi-hole deve poter modificare la configurazione di rete (binding su porta 53, DHCP se abilitato)
 
 ### 3. Avvio e configurazione password
 
