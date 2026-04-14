@@ -1,4 +1,6 @@
-# Pi-hole - DNS Sinkhole per il blocco di pubblicita' e tracking
+>  [English](README.en.md) |  **Italiano**
+
+# Pi-hole - DNS Sinkhole per il blocco di pubblicità e tracking
 
 Questa guida documenta l'installazione di Pi-hole su Docker con rete MacVLAN, la configurazione del router per usarlo come DNS primario, e i problemi reali che ho incontrato (spoiler: il conflitto della porta 80 con OpenMediaVault).
 
@@ -6,10 +8,10 @@ Questa guida documenta l'installazione di Pi-hole su Docker con rete MacVLAN, la
 
 ## Come funziona in breve
 
-Pi-hole si posiziona come **DNS server locale** sulla rete. Tutte le query DNS dei dispositivi passano attraverso di lui: se il dominio richiesto e' in una blocklist (advertising, tracking), Pi-hole risponde con un indirizzo nullo (`0.0.0.0`) e la risorsa non viene mai scaricata. Per il browser, e' come se il server di pubblicita' non esistesse.
+Pi-hole si posiziona come **DNS server locale** sulla rete. Tutte le query DNS dei dispositivi passano attraverso di lui: se il dominio richiesto è in una blocklist (advertising, tracking), Pi-hole risponde con un indirizzo nullo (`0.0.0.0`) e la risorsa non viene mai scaricata. Per il browser, è come se il server di pubblicità non esistesse.
 
 ```
-Dispositivo → Pi-hole (192.168.0.250) → Il dominio e' in blocklist?
+Dispositivo → Pi-hole (192.168.0.250) → Il dominio è in blocklist?
                                           ├── SI → Risponde 0.0.0.0 (blocco)
                                           └── NO → Inoltra al DNS upstream (8.8.8.8, 1.1.1.1)
 ```
