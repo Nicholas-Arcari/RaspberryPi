@@ -1,6 +1,8 @@
-# Modalita' di rete Docker a confronto
+>  [English](driver-docker.en.md) |  **Italiano**
 
-Docker offre diversi driver di rete. La scelta del driver ha impatto diretto su isolamento, visibilita' e prestazioni.
+# Modalità di rete Docker a confronto
+
+Docker offre diversi driver di rete. La scelta del driver ha impatto diretto su isolamento, visibilità e prestazioni.
 
 ## Bridge (default)
 
@@ -10,8 +12,8 @@ Docker offre diversi driver di rete. La scelta del driver ha impatto diretto su 
 
 - Ogni container riceve un IP privato nella subnet interna di Docker (172.17.0.0/16)
 - Il traffico verso l'esterno passa attraverso NAT (Network Address Translation)
-- **Problema:** Tutti i pacchetti in uscita hanno come IP sorgente l'indirizzo del Raspberry Pi. Pi-hole non puo' distinguere quale client ha fatto la query DNS - vede solo l'IP del gateway Docker
-- **Problema:** Per esporre porte, serve `-p 80:80` (port mapping) - conflitto se l'host usa gia' quella porta
+- **Problema:** Tutti i pacchetti in uscita hanno come IP sorgente l'indirizzo del Raspberry Pi. Pi-hole non può distinguere quale client ha fatto la query DNS - vede solo l'IP del gateway Docker
+- **Problema:** Per esporre porte, serve `-p 80:80` (port mapping) - conflitto se l'host usa già quella porta
 
 ## MacVLAN
 
@@ -23,7 +25,7 @@ Docker offre diversi driver di rete. La scelta del driver ha impatto diretto su 
 - Il container ottiene un **MAC address virtuale** e un IP sulla rete fisica
 - Appare come un dispositivo fisico separato sulla LAN
 - **Vantaggio:** IP dedicato, nessun NAT, nessun port mapping
-- **Limitazione critica:** Per design del kernel Linux, l'host **non puo' comunicare** con i container MacVLAN sulla stessa interfaccia. Il traffico tra host e container viene droppato a livello kernel (misura anti-spoofing)
+- **Limitazione critica:** Per design del kernel Linux, l'host **non può comunicare** con i container MacVLAN sulla stessa interfaccia. Il traffico tra host e container viene droppato a livello kernel (misura anti-spoofing)
 
 ## IPVLAN (L2 mode)
 
@@ -44,5 +46,5 @@ Docker offre diversi driver di rete. La scelta del driver ha impatto diretto su 
 | MAC address dedicato | No | Si (virtuale) | No (condiviso con host) |
 | Host ↔ Container | Si | **No** | **No** |
 | Port mapping necessario | Si | No | No |
-| Visibilita' IP client | Solo IP gateway | IP reale del client | IP reale del client |
-| Compatibilita' port-security | N/A | Puo' causare problemi | Compatibile |
+| Visibilità IP client | Solo IP gateway | IP reale del client | IP reale del client |
+| Compatibilità port-security | N/A | Può causare problemi | Compatibile |
