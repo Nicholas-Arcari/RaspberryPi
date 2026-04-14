@@ -1,3 +1,5 @@
+>  [English](README.en.md) |  **Italiano**
+
 # Honeypot - Cowrie SSH/Telnet con integrazione Wazuh SIEM
 
 Un progetto di cybersecurity per trasformare il Raspberry Pi in una "trappola" (Honeypot) capace di attirare attaccanti, registrare le loro azioni e analizzarle in tempo reale tramite un SIEM. Include la configurazione completa, le regole custom per Wazuh, e tutti i problemi che ho incontrato con le relative soluzioni.
@@ -23,7 +25,7 @@ Attaccante (Internet/LAN)
 
 | # | Sezione | Descrizione |
 |---|---------|-------------|
-| 1 | [Teoria: Cos'e' un Honeypot](docs/teoria-honeypot.md) | Classificazione degli honeypot, descrizione di Cowrie, mapping MITRE ATT&CK |
+| 1 | [Teoria: Cos'è un Honeypot](docs/teoria-honeypot.md) | Classificazione degli honeypot, descrizione di Cowrie, mapping MITRE ATT&CK |
 | 2 | [Installazione Cowrie + Wazuh](docs/installazione-cowrie.md) | Architettura, prerequisiti, setup Docker, configurazione ossec.conf, fix permessi |
 | 3 | [Regole Custom Wazuh](docs/regole-wazuh.md) | local_rules.xml, spiegazione delle regole, esempio reale di log JSON Cowrie |
 | 4 | [Pipeline: dal log all'alert](docs/log-pipeline.md) | Walk-through completo Fasi 1-6, validazione con wazuh-logtest |
