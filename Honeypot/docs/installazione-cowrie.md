@@ -1,3 +1,5 @@
+>  [English](installazione-cowrie.en.md) |  **Italiano**
+
 # Installazione Cowrie con integrazione Wazuh
 
 ## Architettura del progetto
@@ -43,7 +45,7 @@ mkdir -p ~/cowrie/etc
 cd ~/cowrie
 ```
 
-La struttura `var/log/cowrie` sara' montata come volume nel container - i log di Cowrie verranno scritti qui, dove Wazuh potra' leggerli.
+La struttura `var/log/cowrie` sarà montata come volume nel container - i log di Cowrie verranno scritti qui, dove Wazuh potrà leggerli.
 
 #### Docker Compose
 
@@ -64,7 +66,7 @@ services:
       - ./var/log/cowrie:/cowrie/cowrie-git/var/log/cowrie
 ```
 
-> **Perche' la porta 2222 e non la 22:** La porta 22 e' occupata dal vero server SSH del Raspberry Pi. Se usassimo la 22 per l'honeypot, perderemmo l'accesso SSH reale al sistema. In un deployment di produzione, si potrebbe fare NAT per esporre la porta 2222 come porta 22 verso Internet (dal punto di vista dell'attaccante, sembra un normale SSH).
+> **Perchè la porta 2222 e non la 22:** La porta 22 è occupata dal vero server SSH del Raspberry Pi. Se usassimo la 22 per l'honeypot, perderemmo l'accesso SSH reale al sistema. In un deployment di produzione, si potrebbe fare NAT per esporre la porta 2222 come porta 22 verso Internet (dal punto di vista dell'attaccante, sembra un normale SSH).
 
 #### Avvio
 
@@ -114,12 +116,12 @@ Docker crea i file di log con l'utente interno del container. Wazuh (che gira co
 sudo chmod -R 755 /home/<tuo_utente>/cowrie/var/log/cowrie/
 ```
 
-> **Nota:** In un ambiente di produzione, sarebbe meglio usare ACL o aggiungere l'utente `wazuh` al gruppo del container. Il `chmod 755` e' la soluzione rapida per un home lab.
+> **Nota:** In un ambiente di produzione, sarebbe meglio usare ACL o aggiungere l'utente `wazuh` al gruppo del container. Il `chmod 755` è la soluzione rapida per un home lab.
 
 #### Riavvio dell'agente
 
 ```bash
 sudo systemctl restart wazuh-agent
-# oppure, se e' all-in-one:
+# oppure, se è all-in-one:
 sudo /var/ossec/bin/wazuh-control restart
 ```
