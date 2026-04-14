@@ -1,3 +1,5 @@
+>  [English](rete-dmz.en.md) |  **Italiano**
+
 # La sfida di rete: DMZ e Doppio NAT
 
 ## Il problema del Double NAT
@@ -10,9 +12,9 @@ La mia connessione Internet arriva tramite un'**antenna FWA** (provider: Comeser
 Internet → [Antenna Provider (NAT #1)] → [Router TP-Link (NAT #2)] → [Raspberry Pi]
 ```
 
-**Cos'e' il CGNAT (Carrier-Grade NAT):** Il provider assegna alla mia antenna un IP **privato** (tipo `10.x.x.x` o `100.64.x.x`) invece di un IP pubblico. Questo significa che il mio router, pur avendo un "IP WAN", ha in realta' un IP che non e' raggiungibile da Internet.
+**Cos'è il CGNAT (Carrier-Grade NAT):** Il provider assegna alla mia antenna un IP **privato** (tipo `10.x.x.x` o `100.64.x.x`) invece di un IP pubblico. Questo significa che il mio router, pur avendo un "IP WAN", ha in realtà un IP che non è raggiungibile da Internet.
 
-**Come l'ho scoperto:** Controllando l'IP WAN sul router, vedevo un indirizzo `192.168.x.x` - chiaramente un IP privato. Il port forwarding sul TP-Link non serviva a nulla perche' il traffico veniva bloccato a monte, sul NAT del provider.
+**Come l'ho scoperto:** Controllando l'IP WAN sul router, vedevo un indirizzo `192.168.x.x` - chiaramente un IP privato. Il port forwarding sul TP-Link non serviva a nulla perchè il traffico veniva bloccato a monte, sul NAT del provider.
 
 ## La soluzione: DMZ sul provider
 
@@ -24,7 +26,7 @@ Internet → [Antenna Provider (DMZ → tutto il traffico al mio router)] → [R
 
 Dopo questa modifica, il mio router vede un IP WAN pubblico e il port forwarding funziona normalmente.
 
-> **Nota sulla sicurezza:** Con la DMZ attiva, il router e' esposto direttamente su Internet. Ho preso queste precauzioni:
+> **Nota sulla sicurezza:** Con la DMZ attiva, il router è esposto direttamente su Internet. Ho preso queste precauzioni:
 > - Disabilitato la gestione remota del router (no accesso admin dall'esterno)
 > - Cambiato la password admin del router con una robusta
 > - Aperto solo le porte strettamente necessarie nel port forwarding
@@ -57,7 +59,7 @@ Questo garantisce che il port forwarding punti sempre all'IP corretto, anche dop
 
 ### 2. DDNS (Dynamic DNS)
 
-L'IP pubblico assegnato dal provider puo' cambiare periodicamente (IP dinamico). Un servizio **DDNS** (Dynamic Domain Name System) associa un nome dominio fisso (es. `miodominio.ddns.net`) all'IP pubblico corrente.
+L'IP pubblico assegnato dal provider può cambiare periodicamente (IP dinamico). Un servizio **DDNS** (Dynamic Domain Name System) associa un nome dominio fisso (es. `miodominio.ddns.net`) all'IP pubblico corrente.
 
 Ho usato **No-IP** (https://www.noip.com):
 
@@ -78,4 +80,4 @@ Sul router (TP-Link → Forwarding → Virtual Servers):
 | IP Address | 192.168.0.102 |
 | Protocol | **UDP** |
 
-> **Perche' UDP e non TCP:** WireGuard usa esclusivamente UDP. A differenza di OpenVPN che puo' funzionare su TCP (port 443, per sembrare traffico HTTPS), WireGuard e' progettato attorno a UDP per minimizzare la latenza. Il protocollo gestisce internamente la ritrasmissione dei pacchetti persi, senza l'overhead di TCP.
+> **Perchè UDP e non TCP:** WireGuard usa esclusivamente UDP. A differenza di OpenVPN che può funzionare su TCP (port 443, per sembrare traffico HTTPS), WireGuard è progettato attorno a UDP per minimizzare la latenza. Il protocollo gestisce internamente la ritrasmissione dei pacchetti persi, senza l'overhead di TCP.
