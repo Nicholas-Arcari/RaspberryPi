@@ -1,4 +1,6 @@
-# Perche' Pi-hole e non le alternative
+>  [English](alternative.en.md) |  **Italiano**
+
+# Perchè Pi-hole e non le alternative
 
 ## Pi-hole vs AdGuard Home vs Blocky vs NextDNS
 
@@ -13,13 +15,13 @@
 | **DHCP server** | Si | Si | No | No |
 | **Risorse (RAM)** | ~120MB | ~70MB | ~20MB | 0 (cloud) |
 | **RPi ARM64** | Si | Si | Si | N/A (cloud) |
-| **Blocklist** | Gravity (SQLite, 80k+ domini) | Filtri stile AdBlock (piu' flessibili) | Lista link in YAML | Preset + custom |
-| **Community** | Enorme (piu' vecchio, piu' documentato) | Grande (in crescita rapida) | Piccola (nichia) | Media |
+| **Blocklist** | Gravity (SQLite, 80k+ domini) | Filtri stile AdBlock (più flessibili) | Lista link in YAML | Preset + custom |
+| **Community** | Enorme (più vecchio, più documentato) | Grande (in crescita rapida) | Piccola (nichia) | Media |
 | **Costo** | $0 | $0 | $0 | $0 (300k query/mese) / $20/anno |
 
 ## AdGuard Home: l'alternativa principale - quando preferirla
 
-AdGuard Home ha due vantaggi che Pi-hole non ha: **DoH/DoT nativo** (il traffico DNS tra AdGuard e l'upstream e' cifrato senza proxy aggiuntivi) e **filtri per client** (puoi applicare blocklist diverse a dispositivi diversi - es. blocklist piu' aggressiva per i figli, piu' permissiva per il tuo PC).
+AdGuard Home ha due vantaggi che Pi-hole non ha: **DoH/DoT nativo** (il traffico DNS tra AdGuard e l'upstream è cifrato senza proxy aggiuntivi) e **filtri per client** (puoi applicare blocklist diverse a dispositivi diversi - es. blocklist più aggressiva per i figli, più permissiva per il tuo PC).
 
 **Installazione su Docker (stesse porte di Pi-hole):**
 
@@ -37,17 +39,17 @@ docker run -d \
 # Dopo il setup, dashboard su http://192.168.0.250:80
 ```
 
-**Perche' ho scelto Pi-hole e non AdGuard Home:**
+**Perchè ho scelto Pi-hole e non AdGuard Home:**
 
-1. **Community e documentazione**: Pi-hole e' il progetto piu' maturo, con migliaia di guide e troubleshooting disponibili. Per un progetto educativo, la documentazione conta
+1. **Community e documentazione**: Pi-hole è il progetto più maturo, con migliaia di guide e troubleshooting disponibili. Per un progetto educativo, la documentazione conta
 2. **Integrazione Wazuh**: Pi-hole scrive log in formato standard syslog (`/var/log/pihole.log`), facilmente ingeribili da Wazuh. AdGuard Home usa un formato proprietario che richiede decoder custom
-3. **FTL engine**: Il motore FTL di Pi-hole e' scritto in C e gestisce le query con latenza inferiore al millisecondo. AdGuard Home in Go e' comunque veloce, ma FTL e' piu' efficiente su hardware limitato come il Pi
+3. **FTL engine**: Il motore FTL di Pi-hole è scritto in C e gestisce le query con latenza inferiore al millisecondo. AdGuard Home in Go è comunque veloce, ma FTL è più efficiente su hardware limitato come il Pi
 
 **Quando scegliere AdGuard Home:** Se hai bisogno di DoH/DoT nativo (senza configurare un proxy come `cloudflared`), o se vuoi regole diverse per dispositivi diversi (es. bambini vs adulti).
 
 ## Blocky: l'alternativa minimale per chi vuole solo YAML
 
-Blocky e' per chi trova Pi-hole e AdGuard Home "troppi" - nessuna interfaccia web, solo un file YAML:
+Blocky è per chi trova Pi-hole e AdGuard Home "troppi" - nessuna interfaccia web, solo un file YAML:
 
 ```bash
 # Installazione via Docker
@@ -82,7 +84,7 @@ EOF
 
 **"DoH (DNS-over-HTTPS) rende Pi-hole inutile?"**
 
-Parzialmente. Se un dispositivo usa DoH direttamente (Firefox con DoH abilitato verso Cloudflare), le query DNS **bypassano completamente Pi-hole** perche' viaggiano su HTTPS porta 443, non su DNS porta 53.
+Parzialmente. Se un dispositivo usa DoH direttamente (Firefox con DoH abilitato verso Cloudflare), le query DNS **bypassano completamente Pi-hole** perchè viaggiano su HTTPS porta 443, non su DNS porta 53.
 
 Mitigazioni:
 1. **Bloccare gli IP dei resolver DoH noti** su UFW:
