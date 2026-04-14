@@ -1,3 +1,5 @@
+>  [English](installazione.en.md) |  **Italiano**
+
 # Installazione di WireGuard con Docker
 
 ## Creazione della directory
@@ -38,7 +40,7 @@ services:
       # - 0.0.0.0/0 = tutto il traffico (full tunnel)
       - WG_ALLOWED_IPS=192.168.0.0/24, 10.8.0.0/24, 0.0.0.0/0
 
-      # MTU ridotto per compatibilita' con reti mobili
+      # MTU ridotto per compatibilità con reti mobili
       - WG_MTU=1280
 
     # IMPORTANTE: versione 13 - vedi troubleshooting
@@ -66,13 +68,13 @@ services:
 - `0.0.0.0/0`: TUTTO il traffico passa per la VPN, incluso il browsing web (full tunnel)
 - La combinazione che uso include entrambi, dando al client pieno accesso sia alla LAN che a Internet tramite il tunnel
 
-**`WG_MTU=1280`** - Il MTU (Maximum Transmission Unit) e' la dimensione massima di un pacchetto di rete. Il valore standard e' 1500 byte. WireGuard aggiunge un header di ~60-80 byte a ogni pacchetto (encapsulation), quindi il MTU effettivo deve essere ridotto. Con 1280:
+**`WG_MTU=1280`** - Il MTU (Maximum Transmission Unit) è la dimensione massima di un pacchetto di rete. Il valore standard è 1500 byte. WireGuard aggiunge un header di ~60-80 byte a ogni pacchetto (encapsulation), quindi il MTU effettivo deve essere ridotto. Con 1280:
 
 ```
 [IP header: 20B] [UDP header: 8B] [WG header: ~32B] [Payload: 1280B] = ~1340B < 1500B
 ```
 
-Su reti mobili 4G/5G, il MTU del provider puo' essere gia' ridotto (1400-1420). Se il pacchetto WireGuard supera il MTU del provider, viene frammentato, causando rallentamenti o timeout. 1280 e' il minimo garantito da IPv6 e funziona ovunque.
+Su reti mobili 4G/5G, il MTU del provider può essere già ridotto (1400-1420). Se il pacchetto WireGuard supera il MTU del provider, viene frammentato, causando rallentamenti o timeout. 1280 è il minimo garantito da IPv6 e funziona ovunque.
 
 ## Le regole iptables di wg-easy (PostUp/PostDown)
 
@@ -98,9 +100,9 @@ iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
 | `FORWARD -o wg0 -j ACCEPT` | FORWARD | Accetta pacchetti **diretti** verso il tunnel VPN (risposte dalla LAN/Internet verso i client VPN) |
 | `POSTROUTING -o eth0 -j MASQUERADE` | NAT | **Critico**: esegue Source NAT (SNAT) sui pacchetti in uscita dall'interfaccia fisica. Quando un client VPN (10.8.0.2) accede a un dispositivo sulla LAN (192.168.0.50), l'IP sorgente viene riscritto con l'IP del Raspberry Pi (192.168.0.102). Senza questa regola, il dispositivo di destinazione riceverebbe un pacchetto con sorgente 10.8.0.2 e non saprebbe come rispondere (non ha una rotta verso la subnet 10.8.0.0/24) |
 
-**`MASQUERADE` vs `SNAT`:** Su un'interfaccia con IP dinamico (come nel nostro caso con DHCP), si usa `MASQUERADE` che determina l'IP sorgente automaticamente ad ogni pacchetto. Su un'interfaccia con IP statico, `SNAT --to-source <IP>` sarebbe leggermente piu' efficiente perche' non deve fare il lookup dell'IP ad ogni pacchetto.
+**`MASQUERADE` vs `SNAT`:** Su un'interfaccia con IP dinamico (come nel nostro caso con DHCP), si usa `MASQUERADE` che determina l'IP sorgente automaticamente ad ogni pacchetto. Su un'interfaccia con IP statico, `SNAT --to-source <IP>` sarebbe leggermente più efficiente perchè non deve fare il lookup dell'IP ad ogni pacchetto.
 
-Il `sysctl` `net.ipv4.ip_forward=1` nel Docker Compose abilita il routing tra interfacce nel namespace del container - senza, il kernel scarterebbe qualsiasi pacchetto non destinato a se' stesso.
+Il `sysctl` `net.ipv4.ip_forward=1` nel Docker Compose abilita il routing tra interfacce nel namespace del container - senza, il kernel scarterebbe qualsiasi pacchetto non destinato a sè stesso.
 
 ## Avvio
 
@@ -147,7 +149,7 @@ peer: 7Rp2kLQmVnB9oT1jX5yDfUwS8hAcEi6Zx0GqNpMrJ4k=
 | `listening port` | Porta UDP su cui WireGuard ascolta | Deve corrispondere al port forwarding del router (51820) |
 | `endpoint` | IP:porta corrente del peer | Si aggiorna automaticamente al roaming del client |
 | `allowed ips` | Subnet autorizzate per quel peer | `10.8.0.2/32` = solo il suo IP VPN (split tunnel lato server) |
-| `latest handshake` | Tempo dall'ultimo handshake completato | Se supera i 5 minuti, la sessione e' scaduta. Se dice `(none)`, il client non si e' mai connesso |
-| `transfer` | Byte scambiati (received = dal client, sent = verso il client) | Asimmetria estrema (molto sent, poco received) e' normale: il client naviga e il server inoltra le risposte |
+| `latest handshake` | Tempo dall'ultimo handshake completato | Se supera i 5 minuti, la sessione è scaduta. Se dice `(none)`, il client non si è mai connesso |
+| `transfer` | Byte scambiati (received = dal client, sent = verso il client) | Asimmetria estrema (molto sent, poco received) è normale: il client naviga e il server inoltra le risposte |
 
-> **Diagnostica rapida:** Se `latest handshake` mostra `(none)` e il client sembra connesso, il problema e' quasi sempre il port forwarding: il pacchetto UDP non raggiunge il server. Verificare che la porta 51820/UDP sia aperta sul router e che UFW non la blocchi (`sudo ufw allow 51820/udp`)
+> **Diagnostica rapida:** Se `latest handshake` mostra `(none)` e il client sembra connesso, il problema è quasi sempre il port forwarding: il pacchetto UDP non raggiunge il server. Verificare che la porta 51820/UDP sia aperta sul router e che UFW non la blocchi (`sudo ufw allow 51820/udp`)
