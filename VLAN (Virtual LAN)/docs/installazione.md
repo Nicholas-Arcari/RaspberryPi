@@ -1,3 +1,5 @@
+>  [English](installazione.en.md) |  **Italiano**
+
 # Configurazione Passo-Passo
 
 ## Step 1: Identificare l'interfaccia di rete
@@ -31,7 +33,7 @@ sudo ip link set end0.150 up
 **Cosa succede a livello kernel:**
 
 - `ip link add`: crea un device di rete virtuale di tipo `vlan`
-- `link end0`: la sotto-interfaccia e' "figlia" dell'interfaccia fisica `end0`
+- `link end0`: la sotto-interfaccia è "figlia" dell'interfaccia fisica `end0`
 - `type vlan id 150`: ogni frame in uscita da `end0.150` viene automaticamente taggato con VLAN ID 150. Ogni frame in ingresso su `end0` con tag 150 viene consegnato a `end0.150`
 
 ### Verifica
@@ -47,7 +49,7 @@ ip a
         valid_lft forever preferred_lft forever
 ```
 
-L'interfaccia `end0.150@end0` e' attiva. Nota che non ha un indirizzo IPv4 - non ne ha bisogno, sara' Docker a gestire gli IP dei container.
+L'interfaccia `end0.150@end0` è attiva. Nota che non ha un indirizzo IPv4 - non ne ha bisogno, sarà Docker a gestire gli IP dei container.
 
 > **Persistenza:** Questa configurazione si perde al reboot. Per renderla permanente, aggiungere al file `/etc/network/interfaces.d/vlan150`:
 > ```
@@ -75,11 +77,11 @@ Spiegazione di ogni parametro:
 | `--subnet=192.168.150.0/24` | La sottorete della VLAN 150 |
 | `--gateway=192.168.150.1` | Il gateway della VLAN (deve esistere sullo switch/router) |
 | `-o parent=end0.150` | **Punto critico:** collega la rete Docker alla sotto-interfaccia VLAN, NON all'interfaccia fisica |
-| `-o ipvlan_mode=l2` | Modalita' Layer 2: condivide il MAC dell'host, opera come bridge diretto |
+| `-o ipvlan_mode=l2` | Modalità Layer 2: condivide il MAC dell'host, opera come bridge diretto |
 
 ![Portainer - Lista delle reti Docker mostra la rete ipvlan_150 con subnet 192.168.150.0/24](../img/portainer-network-list.jpg)
 
-## Step 4: Test di connettivita'
+## Step 4: Test di connettività
 
 Avviamo un container temporaneo per verificare che l'IP venga assegnato correttamente:
 
@@ -113,13 +115,13 @@ ip a
 Il container ha l'IP `192.168.150.69` sulla VLAN 150 e condivide il MAC address dell'host (`2c:cf:67:b2:47:ea`).
 
 ```bash
-# Test connettivita' verso il gateway
+# Test connettività verso il gateway
 ping 192.168.150.1
 ```
 
-![Test di connettivita' dal container Alpine sulla VLAN 150](../img/ipvlan-ping-test.jpg)
+![Test di connettività dal container Alpine sulla VLAN 150](../img/ipvlan-ping-test.jpg)
 
-Se il ping funziona, la VLAN e' configurata correttamente end-to-end (Raspberry Pi → switch → router).
+Se il ping funziona, la VLAN è configurata correttamente end-to-end (Raspberry Pi → switch → router).
 
 ### Verifica con tcpdump: osservare i frame taggati
 
@@ -133,7 +135,7 @@ sudo tcpdump -i end0 -e -n vlan 150
 |---|---|
 | `-i end0` | Cattura sull'interfaccia fisica (dove i frame sono ancora taggati) |
 | `-e` | Mostra gli header Ethernet (MAC sorgente/destinazione) |
-| `-n` | Non risolvere nomi DNS (piu' veloce e leggibile) |
+| `-n` | Non risolvere nomi DNS (più veloce e leggibile) |
 | `vlan 150` | Filtra solo i frame con tag VLAN ID 150 |
 
 Output durante un ping dal container:
@@ -158,11 +160,11 @@ Output durante un ping dal container:
 
 **Lettura dell'output:**
 
-1. **Frame 1 (ARP Request)**: il container (MAC `2c:cf:67:b2:47:ea` - MAC dell'host, perche' IPVLAN) invia un broadcast ARP per risolvere il MAC del gateway `192.168.150.1`. Il campo `ethertype 802.1Q (0x8100)` conferma che il frame e' taggato, e `vlan 150` mostra il VLAN ID corretto
+1. **Frame 1 (ARP Request)**: il container (MAC `2c:cf:67:b2:47:ea` - MAC dell'host, perchè IPVLAN) invia un broadcast ARP per risolvere il MAC del gateway `192.168.150.1`. Il campo `ethertype 802.1Q (0x8100)` conferma che il frame è taggato, e `vlan 150` mostra il VLAN ID corretto
 2. **Frame 2 (ARP Reply)**: il gateway risponde con il suo MAC (`aa:bb:cc:dd:ee:ff`)
 3. **Frame 3-4 (ICMP)**: il ping vero e proprio, incapsulato in frame 802.1Q con VLAN 150
 
-Se catturi sulla sotto-interfaccia VLAN (`-i end0.150`), i frame appaiono **senza** tag 802.1Q - il kernel li ha gia' rimossi (de-taggati) prima di consegnarli alla sotto-interfaccia. Questo e' il comportamento atteso: il tagging/de-tagging avviene tra `end0` e `end0.150`.
+Se catturi sulla sotto-interfaccia VLAN (`-i end0.150`), i frame appaiono **senza** tag 802.1Q - il kernel li ha già rimossi (de-taggati) prima di consegnarli alla sotto-interfaccia. Questo è il comportamento atteso: il tagging/de-tagging avviene tra `end0` e `end0.150`.
 
 > **Diagnostica**: se `tcpdump -i end0 vlan 150` non mostra nulla durante il ping dal container, i frame non escono taggati. Verificare che la sotto-interfaccia `end0.150` sia UP e che la rete Docker usi `parent=end0.150` (non `parent=end0`).
 
@@ -207,11 +209,11 @@ networks:
     external: true
 ```
 
-> **Nota:** La rete `ipvlan_150` e' dichiarata come `external: true` perche' l'abbiamo gia' creata manualmente con `docker network create`. Docker Compose non deve tentare di ricrearla.
+> **Nota:** La rete `ipvlan_150` è dichiarata come `external: true` perchè l'abbiamo già creata manualmente con `docker network create`. Docker Compose non deve tentare di ricrearla.
 
 ## Migrazione di un container esistente dalla rete Bridge alla VLAN
 
-Se hai gia' un container Pi-hole in esecuzione sulla rete bridge e vuoi spostarlo su IPVLAN, puoi farlo da Portainer:
+Se hai già un container Pi-hole in esecuzione sulla rete bridge e vuoi spostarlo su IPVLAN, puoi farlo da Portainer:
 
 1. Dalla lista container, clicca sul nome del container (`pihole`)
 2. Clicca **Duplicate/Edit** nella barra in alto
