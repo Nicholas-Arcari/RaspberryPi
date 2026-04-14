@@ -1,3 +1,5 @@
+>  [English](troubleshooting.en.md) |  **Italiano**
+
 # Troubleshooting - Esperienza Personale
 
 ## Errore 1: Container in restart loop infinito
@@ -8,7 +10,7 @@
 twistd: Unknown command: cowrie
 ```
 
-**Causa:** Nel `docker-compose.yml` avevo mappato il volume `./etc:/cowrie/cowrie-git/etc`, sovrascrivendo la cartella di configurazione interna del container con una directory **vuota** dell'host. Cowrie non trovava piu' i suoi file di configurazione e non poteva avviarsi.
+**Causa:** Nel `docker-compose.yml` avevo mappato il volume `./etc:/cowrie/cowrie-git/etc`, sovrascrivendo la cartella di configurazione interna del container con una directory **vuota** dell'host. Cowrie non trovava più i suoi file di configurazione e non poteva avviarsi.
 
 **Soluzione:** Ho rimosso il volume `./etc` dal Docker Compose, lasciando che il container usi la configurazione di default integrata nell'immagine. Montare solo i **log**, non la configurazione, a meno di avere una config personalizzata pronta.
 
@@ -22,7 +24,7 @@ twistd: Unknown command: cowrie
 analysisd: ERROR: Too many fields for JSON decoder
 ```
 
-**Causa:** I log JSON di Cowrie sono molto ricchi di dettagli (ogni evento puo' avere 20-30 campi). Il decoder JSON di Wazuh ha un limite predefinito sul numero di campi analizzabili per evento.
+**Causa:** I log JSON di Cowrie sono molto ricchi di dettagli (ogni evento può avere 20-30 campi). Il decoder JSON di Wazuh ha un limite predefinito sul numero di campi analizzabili per evento.
 
 **Soluzione:** Ho aumentato il buffer del decoder modificando `/var/ossec/etc/local_internal_options.conf`:
 
@@ -40,7 +42,7 @@ sudo /var/ossec/bin/wazuh-control restart
 
 **Sintomo:** Da Kali Linux, il comando `ssh -p 2222 root@127.0.0.1` dava "Connection refused".
 
-**Causa:** `127.0.0.1` (localhost) e' raggiungibile solo dalla macchina stessa. Se testi da un **altro** computer (Kali Linux), devi usare l'IP LAN del Raspberry Pi.
+**Causa:** `127.0.0.1` (localhost) è raggiungibile solo dalla macchina stessa. Se testi da un **altro** computer (Kali Linux), devi usare l'IP LAN del Raspberry Pi.
 
 **Soluzione:**
 
