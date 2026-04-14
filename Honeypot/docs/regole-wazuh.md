@@ -1,3 +1,5 @@
+>  [English](regole-wazuh.en.md) |  **Italiano**
+
 # Regole Custom per Wazuh
 
 Le regole di default di Wazuh non coprono gli eventi specifici di Cowrie. Ho dovuto creare regole personalizzate per generare alert sulla dashboard.
@@ -11,7 +13,7 @@ Le regole di default di Wazuh non coprono gli eventi specifici di Cowrie. Ho dov
   <rule id="100010" level="3">
     <decoded_as>json</decoded_as>
     <field name="eventid" type="pcre2">^cowrie\.</field>
-    <description>Cowrie: Attivita' generica Honeypot rilevata</description>
+    <description>Cowrie: Attività generica Honeypot rilevata</description>
   </rule>
 
   <!-- Tentativo di login fallito (Brute Force) -->
@@ -22,11 +24,11 @@ Le regole di default di Wazuh non coprono gli eventi specifici di Cowrie. Ho dov
     <group>authentication_failed,pci_dss_10.2.4,pci_dss_10.2.5,</group>
   </rule>
 
-  <!-- Login riuscito - CRITICO: un attaccante e' "dentro" l'honeypot -->
+  <!-- Login riuscito - CRITICO: un attaccante è "dentro" l'honeypot -->
   <rule id="100012" level="10">
     <if_sid>100010</if_sid>
     <field name="eventid">cowrie.login.success</field>
-    <description>Cowrie: INTRUSIONE RIUSCITA - Un attaccante e' entrato nell'Honeypot</description>
+    <description>Cowrie: INTRUSIONE RIUSCITA - Un attaccante è entrato nell'Honeypot</description>
     <mitre>
       <id>T1078</id>  <!-- Valid Accounts -->
     </mitre>
@@ -45,7 +47,7 @@ Le regole di default di Wazuh non coprono gli eventi specifici di Cowrie. Ho dov
 
 ## Spiegazione delle regole
 
-**Struttura gerarchica:** La regola `100010` e' la regola padre che cattura qualsiasi evento Cowrie (il campo `eventid` inizia con `cowrie.`). Le regole figlie (`100011-100013`) usano `<if_sid>100010</if_sid>` per attivarsi solo se la regola padre ha fatto match - questo evita di riscrivere la condizione JSON in ogni regola.
+**Struttura gerarchica:** La regola `100010` è la regola padre che cattura qualsiasi evento Cowrie (il campo `eventid` inizia con `cowrie.`). Le regole figlie (`100011-100013`) usano `<if_sid>100010</if_sid>` per attivarsi solo se la regola padre ha fatto match - questo evita di riscrivere la condizione JSON in ogni regola.
 
 **Livelli di allarme (level):**
 
@@ -87,11 +89,11 @@ Spiegazione dei campi chiave:
 | Campo | Significato | Valore per threat hunting |
 |---|---|---|
 | `eventid` | Tipo di evento Cowrie | Discriminatore per le regole Wazuh (`login.success`, `login.failed`, `command.input`) |
-| `username` / `password` | Credenziali provate dall'attaccante | Pattern analysis: se prova `admin/admin` e' un bot; se prova credenziali specifiche potrebbe essere targeted |
+| `username` / `password` | Credenziali provate dall'attaccante | Pattern analysis: se prova `admin/admin` è un bot; se prova credenziali specifiche potrebbe essere targeted |
 | `src_ip` | IP dell'attaccante | Correlazione con altri eventi: lo stesso IP ha provato anche la porta 22 reale? |
 | `src_port` | Porta sorgente (effimera) | Porte sequenziali suggeriscono uno scanner automatizzato |
 | `session` | ID univoco della sessione | Permette di ricostruire l'intera sessione dell'attaccante (tutti i comandi) |
-| `protocol` | SSH o Telnet | Telnet e' un segnale di bot molto vecchi o IoT malware (Mirai-like) |
+| `protocol` | SSH o Telnet | Telnet è un segnale di bot molto vecchi o IoT malware (Mirai-like) |
 
 Ed ecco un evento di esecuzione comando post-intrusione:
 
