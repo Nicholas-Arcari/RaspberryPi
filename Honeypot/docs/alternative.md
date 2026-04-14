@@ -1,6 +1,8 @@
+>  [English](alternative.en.md) |  **Italiano**
+
 # Alternative a Cowrie: quale honeypot per quale scopo
 
-Cowrie e' un'ottima scelta per SSH/Telnet, ma non copre tutti i vettori d'attacco. Un analista deve chiedersi: "cosa NON sto vedendo?"
+Cowrie è un'ottima scelta per SSH/Telnet, ma non copre tutti i vettori d'attacco. Un analista deve chiedersi: "cosa NON sto vedendo?"
 
 ## Confronto honeypot per Raspberry Pi
 
@@ -16,7 +18,7 @@ Cowrie e' un'ottima scelta per SSH/Telnet, ma non copre tutti i vettori d'attacc
 
 ## Installazione: OpenCanary (multi-protocollo, leggero)
 
-OpenCanary e' l'alternativa piu' versatile a Cowrie su RPi: emula molti piu' servizi con un impatto minimo.
+OpenCanary è l'alternativa più versatile a Cowrie su RPi: emula molti più servizi con un impatto minimo.
 
 ```bash
 # Installazione via pip
@@ -94,10 +96,10 @@ ss -tlnp | grep -E "(2222|8080|21|445|3306|3389)"
 
 ## Installazione: Dionaea (cattura exploit e malware)
 
-Dionaea e' specializzato nel catturare **exploit di rete** e **malware binari** -- cosa che Cowrie non fa.
+Dionaea è specializzato nel catturare **exploit di rete** e **malware binari** -- cosa che Cowrie non fa.
 
 ```bash
-# Installazione via Docker (piu' pulita)
+# Installazione via Docker (più pulita)
 docker run -d \
     --name dionaea \
     --restart=always \
@@ -119,13 +121,13 @@ docker run -d \
 
 ## Il Raspberry Pi come Network TAP: honeypot + robots.txt
 
-Un **Network TAP** (Test Access Point) intercetta passivamente il traffico. Un RPi con due interfacce di rete (Ethernet + USB-Ethernet adapter) puo' essere configurato come TAP trasparente.
+Un **Network TAP** (Test Access Point) intercetta passivamente il traffico. Un RPi con due interfacce di rete (Ethernet + USB-Ethernet adapter) può essere configurato come TAP trasparente.
 
-Ma la domanda piu' interessante: **ha senso un honeypot web con robots.txt per catturare crawler malevoli?**
+Ma la domanda più interessante: **ha senso un honeypot web con robots.txt per catturare crawler malevoli?**
 
 **Si, e funziona cosi':**
 
-I crawler legittimi (Googlebot, Bingbot) rispettano `robots.txt`. I crawler malevoli (scraper, vulnerability scanner, spambot) tipicamente lo **ignorano** o, peggio, lo usano come **mappa delle risorse da attaccare** -- se `robots.txt` dice "non visitare `/admin`", un attaccante sapra' che `/admin` esiste.
+I crawler legittimi (Googlebot, Bingbot) rispettano `robots.txt`. I crawler malevoli (scraper, vulnerability scanner, spambot) tipicamente lo **ignorano** o, peggio, lo usano come **mappa delle risorse da attaccare** -- se `robots.txt` dice "non visitare `/admin`", un attaccante saprà che `/admin` esiste.
 
 ```bash
 # Installa un web server honeypot leggero
@@ -155,7 +157,7 @@ EOF
 Crea pagine trappola che loggano ogni accesso:
 
 ```bash
-# Ogni directory "vietata" e' in realta' un redirect che logga l'IP
+# Ogni directory "vietata" è in realtà un redirect che logga l'IP
 for dir in admin wp-admin phpmyadmin api/v1/users backup; do
     mkdir -p "/home/pi/webhoneypot/$dir"
     cat > "/home/pi/webhoneypot/$dir/index.html" <<HTML
@@ -165,7 +167,7 @@ HTML
 done
 ```
 
-Con la configurazione nginx giusta (log dettagliati), ogni accesso a queste pagine viene registrato -- e chiunque ci arrivi e' sospetto per definizione (un utente legittimo non visita `/backup/database.sql`). Integrato con Wazuh, genera alert immediati.
+Con la configurazione nginx giusta (log dettagliati), ogni accesso a queste pagine viene registrato -- e chiunque ci arrivi è sospetto per definizione (un utente legittimo non visita `/backup/database.sql`). Integrato con Wazuh, genera alert immediati.
 
 ## Domande che un analista dovrebbe farsi
 
@@ -173,7 +175,7 @@ Con la configurazione nginx giusta (log dettagliati), ogni accesso a queste pagi
 
 Parzialmente. Ngrok aggiunge un intermediario (i loro server) che vede tutto il traffico. Per un honeypot:
 - **Pro**: bypassa CGNAT senza chiamare il provider
-- **Contro**: l'IP sorgente degli attaccanti e' quello di Ngrok, non il reale (perde valore forense). L'URL cambia ad ogni riavvio (free tier). Ngrok potrebbe bloccare traffico "malevolo" prima che raggiunga il tuo honeypot
+- **Contro**: l'IP sorgente degli attaccanti è quello di Ngrok, non il reale (perde valore forense). L'URL cambia ad ogni riavvio (free tier). Ngrok potrebbe bloccare traffico "malevolo" prima che raggiunga il tuo honeypot
 - **Alternativa migliore**: Cloudflare Tunnel (URL fisso, gratuito) o chiedere al provider di rimuovere il CGNAT
 
 **"Un singolo honeypot basta?"**
@@ -190,4 +192,4 @@ No. Un attaccante che scansiona la rete e vede SOLO la porta 2222 aperta potrebb
 
 **"Come distinguo un attaccante da un pentester autorizzato?"**
 
-Nei log, non puoi. Per questo ogni penetration test deve essere **documentato in anticipo** con: scope (IP/porte target), finestra temporale, IP sorgente del tester. Un alert proveniente da un IP non nella lista di pentester autorizzati e' da trattare come reale.
+Nei log, non puoi. Per questo ogni penetration test deve essere **documentato in anticipo** con: scope (IP/porte target), finestra temporale, IP sorgente del tester. Un alert proveniente da un IP non nella lista di pentester autorizzati è da trattare come reale.
