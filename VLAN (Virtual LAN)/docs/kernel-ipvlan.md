@@ -1,3 +1,5 @@
+>  [English](kernel-ipvlan.en.md) |  **Italiano**
+
 # Deep Dive: flusso di un pacchetto in IPVLAN L2 a livello kernel
 
 Per capire cosa succede realmente quando un container su IPVLAN L2 invia o riceve un pacchetto, bisogna scendere al livello del kernel Linux.
@@ -25,9 +27,9 @@ Per capire cosa succede realmente quando un container su IPVLAN L2 invia o ricev
 [Switch → Rete]
 ```
 
-**Punto chiave**: in modalita' L2, il driver IPVLAN opera come un **bridge software**. Non passa per le tabelle di routing del container - il frame viene consegnato direttamente all'interfaccia parent. Questo e' il motivo per cui IPVLAN L2 e' piu' veloce di bridge: salta netfilter, NAT e routing.
+**Punto chiave**: in modalità L2, il driver IPVLAN opera come un **bridge software**. Non passa per le tabelle di routing del container - il frame viene consegnato direttamente all'interfaccia parent. Questo è il motivo per cui IPVLAN L2 è più veloce di bridge: salta netfilter, NAT e routing.
 
-In modalita' **L3** (non usata nel nostro setup), il driver opera come un router: il pacchetto attraversa le tabelle di routing e netfilter del container, permettendo policy piu' granulari ma con overhead maggiore.
+In modalità **L3** (non usata nel nostro setup), il driver opera come un router: il pacchetto attraversa le tabelle di routing e netfilter del container, permettendo policy più granulari ma con overhead maggiore.
 
 ## Pacchetto in ingresso (rete fisica → container)
 
@@ -50,18 +52,18 @@ In modalita' **L3** (non usata nel nostro setup), il driver opera come un router
               (ma l'host non ha IP su end0.150, quindi il pacchetto viene scartato)
 ```
 
-**Il meccanismo di dispatch**: quando un frame arriva su `end0.150`, il driver IPVLAN confronta l'IP destinazione con una tabella interna che mappa `IP → network namespace`. Se trova un match, consegna il pacchetto al namespace del container corrispondente. Se non lo trova, il pacchetto sale allo stack dell'host. Poiche' l'host non ha un indirizzo IP configurato su `end0.150`, il pacchetto viene scartato - questa e' la ragione tecnica per cui **l'host non puo' comunicare con i container IPVLAN**.
+**Il meccanismo di dispatch**: quando un frame arriva su `end0.150`, il driver IPVLAN confronta l'IP destinazione con una tabella interna che mappa `IP → network namespace`. Se trova un match, consegna il pacchetto al namespace del container corrispondente. Se non lo trova, il pacchetto sale allo stack dell'host. Poichè l'host non ha un indirizzo IP configurato su `end0.150`, il pacchetto viene scartato - questa è la ragione tecnica per cui **l'host non può comunicare con i container IPVLAN**.
 
 ## ARP in IPVLAN vs MacVLAN: la differenza fondamentale
 
-Il protocollo ARP (Address Resolution Protocol) risolve `IP → MAC address` sulla LAN. Il modo in cui ARP funziona e' la **differenza architetturale chiave** tra MacVLAN e IPVLAN:
+Il protocollo ARP (Address Resolution Protocol) risolve `IP → MAC address` sulla LAN. Il modo in cui ARP funziona è la **differenza architetturale chiave** tra MacVLAN e IPVLAN:
 
 **MacVLAN:**
 ```
 Router ARP request: "Chi ha 192.168.150.69?"
     │
     ▼
-Container risponde con MAC VIRTUALE: "192.168.150.69 e' aa:bb:cc:dd:ee:01"
+Container risponde con MAC VIRTUALE: "192.168.150.69 è aa:bb:cc:dd:ee:01"
     │
     ▼
 ARP table del router: 192.168.150.69 → aa:bb:cc:dd:ee:01
@@ -74,7 +76,7 @@ ARP table del router: 192.168.0.102  → 2c:cf:67:b2:47:ea
 Router ARP request: "Chi ha 192.168.150.69?"
     │
     ▼
-Container risponde con MAC dell'HOST: "192.168.150.69 e' 2c:cf:67:b2:47:ea"
+Container risponde con MAC dell'HOST: "192.168.150.69 è 2c:cf:67:b2:47:ea"
     │
     ▼
 ARP table del router: 192.168.150.69 → 2c:cf:67:b2:47:ea
@@ -82,7 +84,7 @@ ARP table del router: 192.168.0.102  → 2c:cf:67:b2:47:ea
                       (stesso MAC, 2 IP diversi)
 ```
 
-**Perche' conta:**
+**Perchè conta:**
 
 | Scenario | MacVLAN | IPVLAN |
 |---|---|---|
@@ -91,4 +93,4 @@ ARP table del router: 192.168.0.102  → 2c:cf:67:b2:47:ea
 | Wi-Fi (molti AP rifiutano MAC multipli) | **Non funziona** | **Funziona** |
 | Cloud/VPS (provider filtra MAC sconosciuti) | **Non funziona** | **Funziona** |
 
-> **Nel nostro lab**: ho scelto IPVLAN specificamente perche' alcuni switch consumer implementano una forma base di port security che limita i MAC per porta. Con IPVLAN, lo switch non nota differenze - vede sempre lo stesso MAC del Raspberry Pi, indipendentemente da quanti container girano.
+> **Nel nostro lab**: ho scelto IPVLAN specificamente perchè alcuni switch consumer implementano una forma base di port security che limita i MAC per porta. Con IPVLAN, lo switch non nota differenze - vede sempre lo stesso MAC del Raspberry Pi, indipendentemente da quanti container girano.
