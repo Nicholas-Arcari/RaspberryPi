@@ -1,8 +1,10 @@
+>  [English](ftl-engine.en.md) |  **Italiano**
+
 # Deep Dive: Pi-hole FTL Engine e gravity.db
 
 ## FTL (Faster Than Light) - il cuore di Pi-hole
 
-Pi-hole non e' un semplice file `/etc/hosts` gigante. Il suo motore DNS si chiama **FTL (Faster Than Light)** ed e' un fork di `dnsmasq` con un layer di analisi e logging integrato.
+Pi-hole non è un semplice file `/etc/hosts` gigante. Il suo motore DNS si chiama **FTL (Faster Than Light)** ed è un fork di `dnsmasq` con un layer di analisi e logging integrato.
 
 Come funziona una query:
 
@@ -12,7 +14,7 @@ Client (192.168.0.109) → query DNS "ads.doubleclick.net"
      ▼
 [Pi-hole FTL riceve la query sulla porta 53]
      │
-     ├── 1. Controlla la cache locale (risposte gia' note)
+     ├── 1. Controlla la cache locale (risposte già note)
      │       → HIT: risponde immediatamente (tempo: ~0.1ms)
      │       → MISS: prosegue ▼
      │
@@ -82,16 +84,16 @@ I regex vengono compilati all'avvio di FTL e valutati su ogni query - troppi reg
 
 ## DNSSEC (Domain Name System Security Extensions)
 
-Pi-hole supporta la validazione **DNSSEC**, che verifica l'autenticita' delle risposte DNS tramite firma crittografica.
+Pi-hole supporta la validazione **DNSSEC**, che verifica l'autenticità delle risposte DNS tramite firma crittografica.
 
-**Il problema che DNSSEC risolve:** il protocollo DNS e' nato senza autenticazione. Un attaccante (DNS spoofing, cache poisoning) puo' restituire risposte false, reindirizzando `www.banca.it` verso un server malevolo. DNSSEC aggiunge firme digitali alle risposte DNS che il resolver puo' verificare.
+**Il problema che DNSSEC risolve:** il protocollo DNS è nato senza autenticazione. Un attaccante (DNS spoofing, cache poisoning) può restituire risposte false, reindirizzando `www.banca.it` verso un server malevolo. DNSSEC aggiunge firme digitali alle risposte DNS che il resolver può verificare.
 
 **Come funziona:**
 
 1. Il dominio (es. `example.com`) firma i suoi record DNS con una chiave privata
-2. La chiave pubblica corrispondente e' pubblicata nel DNS stesso (record DNSKEY)
-3. Il resolver verifica la firma: se corrisponde, la risposta e' autentica; se non corrisponde, la risposta viene scartata
+2. La chiave pubblica corrispondente è pubblicata nel DNS stesso (record DNSKEY)
+3. Il resolver verifica la firma: se corrisponde, la risposta è autentica; se non corrisponde, la risposta viene scartata
 
 Per abilitare DNSSEC in Pi-hole: **Settings → DNS → Use DNSSEC** (checkbox).
 
-> **Nota:** DNSSEC aggiunge una leggera latenza alla prima query (verifica della chain of trust). Se il DNS upstream non supporta DNSSEC (o il dominio non e' firmato), la query passa normalmente senza validazione - DNSSEC non rompe i domini non firmati.
+> **Nota:** DNSSEC aggiunge una leggera latenza alla prima query (verifica della chain of trust). Se il DNS upstream non supporta DNSSEC (o il dominio non è firmato), la query passa normalmente senza validazione - DNSSEC non rompe i domini non firmati.
