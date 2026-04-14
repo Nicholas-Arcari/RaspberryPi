@@ -1,3 +1,5 @@
+>  [English](log-pipeline.en.md) |  **Italiano**
+
 # Walk-through: dalla riga di log all'alert sulla Dashboard
 
 Ecco il percorso completo di un evento, dal momento in cui Cowrie lo scrive fino a quando appare come alert:
@@ -24,7 +26,7 @@ L'agente fa `inotify` (o polling) sul file. Quando una nuova riga appare, la leg
 
 ## Fase 3: il Decoder JSON del Manager
 
-Il Manager riceve l'evento grezzo. Il decoder `json` (built-in) identifica che il formato e' JSON e estrae automaticamente ogni campo come variabile:
+Il Manager riceve l'evento grezzo. Il decoder `json` (built-in) identifica che il formato è JSON e estrae automaticamente ogni campo come variabile:
 
 ```
 Evento grezzo: {"eventid":"cowrie.login.success","username":"root",...}
@@ -58,7 +60,7 @@ Il Manager scrive l'alert in `/var/ossec/logs/alerts/alerts.json`:
   "timestamp": "2026-03-15T14:32:07.892+0000",
   "rule": {
     "level": 10,
-    "description": "Cowrie: INTRUSIONE RIUSCITA - Un attaccante e' entrato nell'Honeypot",
+    "description": "Cowrie: INTRUSIONE RIUSCITA - Un attaccante è entrato nell'Honeypot",
     "id": "100012",
     "mitre": {
       "id": ["T1078"],
@@ -105,7 +107,7 @@ Incollare una riga JSON di Cowrie e verificare che la regola corretta faccia mat
 **Phase 3: Completed filtering (rules).
        id: '100012'
        level: '10'
-       description: 'Cowrie: INTRUSIONE RIUSCITA - Un attaccante e' entrato nell'Honeypot'
+       description: 'Cowrie: INTRUSIONE RIUSCITA - Un attaccante è entrato nell'Honeypot'
        groups: '['local', 'syslog', 'sshd', 'authentication_success', 'pci_dss_10.2.5']'
 ```
 
