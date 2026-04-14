@@ -1,4 +1,6 @@
-# Perche' WireGuard e non le alternative: analisi critica
+>  [English](alternative.en.md) |  **Italiano**
+
+# Perchè WireGuard e non le alternative: analisi critica
 
 ## WireGuard vs Tailscale vs OpenVPN vs ZeroTier vs NordVPN
 
@@ -12,12 +14,12 @@
 | **Crittografia** | ChaCha20-Poly1305 (fissa) | WireGuard (sotto il cofano) | Configurabile (AES-256, etc.) | ChaCha20 o AES-256 | AES-256 (provider-managed) |
 | **Performance** | Eccellente (kernel-space) | Eccellente (usa WireGuard) | Buona (user-space) | Buona | Variabile (dipende dal server) |
 | **Costo** | $0 | $0 (3 utenti) / $6/mese (team) | $0 | $0 (25 devices) / $10/mese | ~$3-5/mese |
-| **Config complessita'** | Media (port forward, DDNS) | **Bassa** (installa e funziona) | Alta (PKI, certificati) | Bassa | Minima (app) |
+| **Config complessità** | Media (port forward, DDNS) | **Bassa** (installa e funziona) | Alta (PKI, certificati) | Bassa | Minima (app) |
 | **ARM64 RPi** | Si | Si | Si | Si | Solo client |
 
 ## Tailscale: come cambierebbe l'architettura del lab
 
-Tailscale usa WireGuard sotto il cofano, ma aggiunge un **coordination server** (Tailscale cloud) che gestisce lo scambio delle chiavi e il NAT traversal automaticamente. L'impatto architetturale e' significativo:
+Tailscale usa WireGuard sotto il cofano, ma aggiunge un **coordination server** (Tailscale cloud) che gestisce lo scambio delle chiavi e il NAT traversal automaticamente. L'impatto architetturale è significativo:
 
 ```
 ARCHITETTURA ATTUALE (WireGuard self-hosted):
@@ -51,16 +53,16 @@ tailscale ip -4
 | Servizio | Con WireGuard | Con Tailscale | Differenza |
 |---|---|---|---|
 | Accesso remoto LAN | Si (full tunnel) | Si (accesso diretto al Pi) | Tailscale: niente split tunnel, solo dispositivi Tailscale |
-| **Honeypot esposto** | Port forward :2222 | **Non possibile** (Tailscale non espone porte a Internet) | **Dealbreaker**: Tailscale non e' fatto per esporre servizi pubblici |
+| **Honeypot esposto** | Port forward :2222 | **Non possibile** (Tailscale non espone porte a Internet) | **Dealbreaker**: Tailscale non è fatto per esporre servizi pubblici |
 | Pi-hole da remoto | Si (DNS via tunnel) | Si (imposta Pi come exit node) | Simile |
 | Wazuh Dashboard | Si (via tunnel VPN) | Si (via rete Tailscale) | Simile |
 | Costo CGNAT | Richiede DMZ dal provider o Ngrok | Nessun costo aggiuntivo | Tailscale vince |
 
-> **Perche' ho scelto WireGuard e non Tailscale:** Il progetto richiede di **esporre l'honeypot su Internet**. Tailscale e' progettato per connettere dispositivi privati, non per esporre servizi pubblici. Con Tailscale, la porta 2222 dell'honeypot non sarebbe raggiungibile da attaccanti esterni - vanificando l'intero scopo del progetto. WireGuard self-hosted permette di controllare esattamente quali porte sono esposte e quali no.
+> **Perchè ho scelto WireGuard e non Tailscale:** Il progetto richiede di **esporre l'honeypot su Internet**. Tailscale è progettato per connettere dispositivi privati, non per esporre servizi pubblici. Con Tailscale, la porta 2222 dell'honeypot non sarebbe raggiungibile da attaccanti esterni - vanificando l'intero scopo del progetto. WireGuard self-hosted permette di controllare esattamente quali porte sono esposte e quali no.
 
 > **Quando usare Tailscale:** Se il progetto fosse solo "NAS + accesso remoto" (senza honeypot), Tailscale sarebbe la scelta migliore: zero configurazione di rete, funziona dietro qualsiasi NAT, nessun DDNS necessario.
 
-## NordVPN/Surfshark: perche' non hanno senso per un homelab
+## NordVPN/Surfshark: perchè non hanno senso per un homelab
 
 Le VPN commerciali (NordVPN, ExpressVPN, Surfshark) risolvono un problema diverso:
 
@@ -73,11 +75,11 @@ Le VPN commerciali (NordVPN, ExpressVPN, Surfshark) risolvono un problema divers
 | **Honeypot** | Puoi esporre servizi | Non puoi esporre nulla |
 | **Privacy dal provider** | No (il provider vede il tuo IP) | Si (il provider vede solo traffico verso NordVPN) |
 
-NordVPN non ti fa accedere al Raspberry Pi da remoto. E' un servizio per navigare anonimamente, non per gestire un homelab.
+NordVPN non ti fa accedere al Raspberry Pi da remoto. è un servizio per navigare anonimamente, non per gestire un homelab.
 
 ## OpenVPN: quando preferirlo a WireGuard
 
-OpenVPN ha un vantaggio specifico: puo' funzionare su **TCP porta 443**, rendendosi indistinguibile dal traffico HTTPS. Questo e' utile in:
+OpenVPN ha un vantaggio specifico: può funzionare su **TCP porta 443**, rendendosi indistinguibile dal traffico HTTPS. Questo è utile in:
 
 - **Reti aziendali** che bloccano tutto tranne HTTP/HTTPS
 - **Paesi con censura** che bloccano attivamente i protocolli VPN (Cina, Russia, Iran)
@@ -102,11 +104,11 @@ docker exec openvpn easyrsa build-client-full client1 nopass
 docker exec openvpn ovpn_getclient client1 > client1.ovpn
 ```
 
-Lo svantaggio: ~100.000 righe di codice (vs 4.000 di WireGuard), superficie d'attacco molto piu' ampia, PKI complessa da gestire.
+Lo svantaggio: ~100.000 righe di codice (vs 4.000 di WireGuard), superficie d'attacco molto più ampia, PKI complessa da gestire.
 
 ## Cloudflare Tunnel: l'alternativa a Ngrok per esporre servizi
 
-Se usi Cloudflare per il DNS, **Cloudflare Tunnel** e' un'alternativa gratuita e piu' stabile di Ngrok:
+Se usi Cloudflare per il DNS, **Cloudflare Tunnel** è un'alternativa gratuita e più stabile di Ngrok:
 
 ```bash
 # Installazione cloudflared
@@ -138,6 +140,6 @@ cloudflared tunnel run homelab-honeypot
 | **Costo** | Gratis (1 tunnel, URL random) | Gratis (illimitati, dominio fisso) |
 | **URL** | Cambia ad ogni riavvio (free tier) | Fisso (tuo dominio) | 
 | **Protocolli** | TCP, HTTP, HTTPS | HTTP, HTTPS, SSH, TCP |
-| **Velocita'** | Buona | Eccellente (rete Cloudflare globale) |
+| **Velocità** | Buona | Eccellente (rete Cloudflare globale) |
 | **Persistenza** | Richiede screen/systemd | Servizio systemd nativo |
 | **Requisiti** | Account Ngrok | Dominio su Cloudflare (gratuito) |
