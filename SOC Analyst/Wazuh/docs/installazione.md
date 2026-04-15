@@ -1,3 +1,5 @@
+>  [English](installazione.en.md) |  **Italiano**
+
 # Guida all'installazione di Wazuh su Raspberry Pi 5 (ARM64)
 
 Installazione manuale dei pacchetti `.deb` ARM64 dal repository Wazuh. Lo script automatico (`wazuh-install.sh`) non supporta ARM64.
@@ -16,9 +18,9 @@ sudo apt update && sudo apt install gnupg apt-transport-https -y
 curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import && sudo chmod 644 /usr/share/keyrings/wazuh.gpg
 ```
 
-**Cosa fa:** Scarica la chiave pubblica GPG di Wazuh e la salva in un keyring dedicato. APT usera' questa chiave per verificare l'autenticita' dei pacchetti scaricati dal repository Wazuh - se un pacchetto e' stato manomesso, la firma non corrisponde e l'installazione viene bloccata.
+**Cosa fa:** Scarica la chiave pubblica GPG di Wazuh e la salva in un keyring dedicato. APT userà questa chiave per verificare l'autenticità dei pacchetti scaricati dal repository Wazuh - se un pacchetto è stato manomesso, la firma non corrisponde e l'installazione viene bloccata.
 
-Il `chmod 644` e' necessario perche' `gpg` crea il file con permessi restrittivi, ma APT ha bisogno di leggerlo come utente non-root.
+Il `chmod 644` è necessario perchè `gpg` crea il file con permessi restrittivi, ma APT ha bisogno di leggerlo come utente non-root.
 
 ### Aggiunta del repository
 
@@ -26,7 +28,7 @@ Il `chmod 644` e' necessario perche' `gpg` crea il file con permessi restrittivi
 echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg arch=arm64] https://packages.wazuh.com/4.x/apt/ stable main" | sudo tee /etc/apt/sources.list.d/wazuh.list
 ```
 
-**Il parametro critico e' `arch=arm64`.** Senza di esso, APT tenta di scaricare pacchetti `amd64` che non sono installabili su ARM.
+**Il parametro critico è `arch=arm64`.** Senza di esso, APT tenta di scaricare pacchetti `amd64` che non sono installabili su ARM.
 
 ```bash
 sudo apt update
@@ -125,10 +127,10 @@ sudo chmod 400 /etc/filebeat/certs/*
 sudo chown -R root:root /etc/filebeat/certs
 ```
 
-**Perche' `chmod 400` e `chmod 500`:**
+**Perchè `chmod 400` e `chmod 500`:**
 
-- `400` sui file: solo il proprietario puo' leggere. La chiave privata non deve MAI essere leggibile da altri utenti
-- `500` sulla directory: solo il proprietario puo' leggere e attraversare la directory
+- `400` sui file: solo il proprietario può leggere. La chiave privata non deve MAI essere leggibile da altri utenti
+- `500` sulla directory: solo il proprietario può leggere e attraversare la directory
 
 Se i permessi sono sbagliati, i servizi non partono con errore "Permission denied" sui file `.pem`.
 
@@ -156,7 +158,7 @@ uiSettings.overrides.defaultRoute: /app/wz-home
 
 - `server.host: 0.0.0.0` - ascolta su tutte le interfacce (raggiungibile dalla rete, non solo localhost)
 - `server.port: 443` - HTTPS standard. Richiede privilegi root o `cap_add NET_BIND_SERVICE` (le porte < 1024 sono privilegiate)
-- `opensearch.ssl.verificationMode: none` - in un setup All-in-One con certificati self-signed, la verifica del certificato fallisce perche' il CA non e' "trusted". In produzione si userebbe `full`
+- `opensearch.ssl.verificationMode: none` - in un setup All-in-One con certificati self-signed, la verifica del certificato fallisce perchè il CA non è "trusted". In produzione si userebbe `full`
 - `opensearch.password: "admin"` - password di default. Viene cambiata con l'init di sicurezza (Step 5)
 
 ---
@@ -194,7 +196,7 @@ sudo systemctl enable wazuh-dashboard
 sudo systemctl start wazuh-dashboard
 ```
 
-La Dashboard sara' raggiungibile su: `https://<IP_RASPBERRY>:443`
+La Dashboard sarà raggiungibile su: `https://<IP_RASPBERRY>:443`
 
 Credenziali di default: `admin` / `admin`
 
