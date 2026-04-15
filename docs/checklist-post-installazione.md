@@ -1,3 +1,5 @@
+>  [English](checklist-post-installazione.en.md) |  **Italiano**
+
 # Checklist post-installazione
 
 Dopo aver completato il setup di tutti i componenti, esegui questa verifica per confermare che tutto funzioni correttamente. Ogni check ha un comando e il risultato atteso.
@@ -13,7 +15,7 @@ sudo apt update && apt list --upgradable
 
 # [ ] Boot da NVMe (se configurato)
 lsblk | grep -E "nvme|mmcblk"
-# Risultato atteso: la partizione root (/) e' su nvme0n1p2, non su mmcblk0
+# Risultato atteso: la partizione root (/) è su nvme0n1p2, non su mmcblk0
 
 # [ ] EEPROM aggiornato
 sudo rpi-eeprom-update
