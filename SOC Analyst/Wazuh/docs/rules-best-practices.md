@@ -1,12 +1,14 @@
+>  [English](rules-best-practices.en.md) |  **Italiano**
+
 # Wazuh Rules Best Practices: configurazione per il nostro lab
 
-La configurazione di default di Wazuh rileva le minacce piu' comuni, ma per un home lab esposto a Internet serve un tuning specifico. Queste sono le configurazioni raccomandate per proteggersi da bot, malware, worm e attacchi mirati.
+La configurazione di default di Wazuh rileva le minacce più comuni, ma per un home lab esposto a Internet serve un tuning specifico. Queste sono le configurazioni raccomandate per proteggersi da bot, malware, worm e attacchi mirati.
 
 ---
 
 ## 1. Active Response: blocco automatico degli IP
 
-Active Response e' la funzionalita' che trasforma Wazuh da "osservatore passivo" a "difensore attivo". Quando un alert raggiunge una certa soglia, Wazuh esegue automaticamente un'azione (tipicamente: bloccare l'IP con iptables/UFW).
+Active Response è la funzionalità che trasforma Wazuh da "osservatore passivo" a "difensore attivo". Quando un alert raggiunge una certa soglia, Wazuh esegue automaticamente un'azione (tipicamente: bloccare l'IP con iptables/UFW).
 
 Aggiungere a `/var/ossec/etc/ossec.conf` sul Manager:
 
@@ -50,13 +52,13 @@ sudo /var/ossec/bin/agent_control -L
 sudo tail -f /var/ossec/logs/active-responses.log
 ```
 
-> **Attenzione:** Non attivare Active Response sulla regola 100011 (login failed honeypot) - bloccheresti i bot prima che rivelino le loro tecniche. L'honeypot deve rimanere accessibile. Blocca solo dopo il login riuscito (100012), quando hai gia' raccolto le credenziali usate.
+> **Attenzione:** Non attivare Active Response sulla regola 100011 (login failed honeypot) - bloccheresti i bot prima che rivelino le loro tecniche. L'honeypot deve rimanere accessibile. Blocca solo dopo il login riuscito (100012), quando hai già raccolto le credenziali usate.
 
 ---
 
 ## 2. Vulnerability Detection: scansione CVE dei pacchetti installati
 
-Wazuh puo' confrontare i pacchetti installati sul sistema con i database di vulnerabilita' note (NVD, Debian Security Tracker) e alertare se un pacchetto ha CVE aperte.
+Wazuh può confrontare i pacchetti installati sul sistema con i database di vulnerabilità note (NVD, Debian Security Tracker) e alertare se un pacchetto ha CVE aperte.
 
 Aggiungere a `ossec.conf` sull'**agent**:
 
@@ -94,13 +96,13 @@ Sul **Manager**, abilitare il modulo vulnerability detector:
 </vulnerability-detector>
 ```
 
-Sulla Dashboard, la sezione **Vulnerability Detection** mostrera' i CVE per ogni agent, con severita' CVSS, pacchetto affetto e versione da installare.
+Sulla Dashboard, la sezione **Vulnerability Detection** mostrerà i CVE per ogni agent, con severità CVSS, pacchetto affetto e versione da installare.
 
 ---
 
 ## 3. CDB Lists: IP reputation e IOC (Indicators of Compromise)
 
-Le **CDB lists** (Constant DataBase) permettono di arricchire le regole con liste esterne. L'uso piu' comune: una lista di IP malevoli noti per generare alert quando compaiono nei log.
+Le **CDB lists** (Constant DataBase) permettono di arricchire le regole con liste esterne. L'uso più comune: una lista di IP malevoli noti per generare alert quando compaiono nei log.
 
 ```bash
 # Scarica una lista di IP noti per attacchi (Abuse.ch)
@@ -146,7 +148,7 @@ Creare una regola che usa la lista in `/var/ossec/etc/rules/local_rules.xml`:
 
 ## 4. CIS Benchmark: verifica automatica dell'hardening
 
-Wazuh puo' verificare automaticamente la conformita' del sistema ai **CIS Benchmarks** (Center for Internet Security) - uno standard industriale per l'hardening.
+Wazuh può verificare automaticamente la conformità del sistema ai **CIS Benchmarks** (Center for Internet Security) - uno standard industriale per l'hardening.
 
 Aggiungere a `ossec.conf` sull'agent:
 
@@ -163,9 +165,9 @@ Aggiungere a `ossec.conf` sull'agent:
 </wodle>
 ```
 
-Sulla Dashboard, la sezione **Security Configuration Assessment (SCA)** mostrera':
+Sulla Dashboard, la sezione **Security Configuration Assessment (SCA)** mostrerà:
 - Quanti check passano e quanti falliscono
-- Per ogni check fallito: cosa correggere e perche' (con riferimento CIS)
+- Per ogni check fallito: cosa correggere e perchè (con riferimento CIS)
 - Score complessivo (es. 78/100)
 
 Esempio di check che potrebbe fallire nel nostro setup:
