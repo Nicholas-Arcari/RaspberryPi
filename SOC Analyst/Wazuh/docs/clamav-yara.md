@@ -1,19 +1,21 @@
+>  [English](clamav-yara.en.md) |  **Italiano**
+
 # ClamAV + YARA: antivirus e malware analysis integrati
 
 ## ClamAV: scansione antivirus periodica
 
-**ClamAV** e' l'antivirus open-source piu' diffuso su Linux. Integrato con Wazuh, genera alert quando rileva malware.
+**ClamAV** è l'antivirus open-source più diffuso su Linux. Integrato con Wazuh, genera alert quando rileva malware.
 
 ```bash
 # Installazione
 sudo apt install clamav clamav-daemon -y
 
-# Aggiorna le signature (prima esecuzione: puo' richiedere minuti)
+# Aggiorna le signature (prima esecuzione: può richiedere minuti)
 sudo systemctl stop clamav-freshclam
 sudo freshclam
 sudo systemctl start clamav-freshclam
 
-# Test: scarica il file di test EICAR (non e' un vero virus)
+# Test: scarica il file di test EICAR (non è un vero virus)
 wget -O /tmp/eicar.com "https://secure.eicar.org/eicar.com"
 
 # Scansione manuale
@@ -75,7 +77,7 @@ Wazuh ha regole built-in per ClamAV (rule group `clam`). Quando ClamAV trova mal
 
 ## YARA: analisi avanzata dei file dell'honeypot
 
-**YARA** e' il tool standard per la classificazione del malware. A differenza di ClamAV (signature-based), YARA usa regole flessibili basate su pattern, stringhe e condizioni logiche.
+**YARA** è il tool standard per la classificazione del malware. A differenza di ClamAV (signature-based), YARA usa regole flessibili basate su pattern, stringhe e condizioni logiche.
 
 ```bash
 # Installazione
@@ -172,4 +174,4 @@ Suricata              Wazuh Agent             ClamAV
                      Dashboard (visualizzazione + threat hunting)
 ```
 
-Ogni layer copre una superficie diversa. Wazuh da solo e' cieco sulla rete e limitato sui file. Con Suricata, ClamAV e YARA, la copertura diventa completa.
+Ogni layer copre una superficie diversa. Wazuh da solo è cieco sulla rete e limitato sui file. Con Suricata, ClamAV e YARA, la copertura diventa completa.
