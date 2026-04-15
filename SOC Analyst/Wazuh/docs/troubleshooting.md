@@ -1,3 +1,5 @@
+>  [English](troubleshooting.en.md) |  **Italiano**
+
 # Troubleshooting e Manutenzione Wazuh
 
 ## Problemi riscontrati e soluzioni
@@ -6,7 +8,7 @@
 
 **Problema:** Lo script `wazuh-install.sh` bloccava l'installazione con errore "Uncompatible system" su Raspberry Pi OS.
 
-**Causa:** Lo script controlla `/etc/os-release` e la lista di sistemi supportati non include Raspberry Pi OS (anche se e' Debian-based).
+**Causa:** Lo script controlla `/etc/os-release` e la lista di sistemi supportati non include Raspberry Pi OS (anche se è Debian-based).
 
 **Soluzione:** Abbandonato lo script a favore dell'installazione manuale tramite `apt` con repository forzato `arch=arm64`.
 
@@ -22,7 +24,7 @@
 
 **Problema:** La Dashboard era raggiungibile ma mostrava un errore rosso persistente e nessun dato.
 
-**Causa:** Due possibilita':
+**Causa:** Due possibilità:
 - Filebeat non installato o non avviato
 - ILM abilitato che creava indici con naming pattern sbagliato (`filebeat-7.x` invece di `wazuh-alerts-*`)
 
@@ -32,7 +34,7 @@
 
 **Problema:** `systemctl start wazuh-indexer` falliva. I log mostravano "Permission denied" sui file `.pem`.
 
-**Causa:** I certificati erano stati copiati con i permessi dell'utente corrente. Il servizio `wazuh-indexer` gira come utente `wazuh-indexer` e non poteva leggere file di proprieta' `root`.
+**Causa:** I certificati erano stati copiati con i permessi dell'utente corrente. Il servizio `wazuh-indexer` gira come utente `wazuh-indexer` e non poteva leggere file di proprietà `root`.
 
 **Soluzione:** `chown` corretto per ogni componente e permessi restrittivi (`chmod 400` sui file, `chmod 500` sulle directory).
 
