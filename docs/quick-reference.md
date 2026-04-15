@@ -1,3 +1,5 @@
+>  [English](quick-reference.en.md) |  **Italiano**
+
 # Quick Reference Card
 
 Tabella di riferimento rapido per operazioni quotidiane e troubleshooting.
@@ -69,6 +71,6 @@ sudo tail -f /var/ossec/logs/alerts/alerts.json   # Alert Wazuh in tempo reale
 
 # === PULIZIA SPAZIO DISCO ===
 docker system df                    # Mostra spazio usato da Docker
-docker system prune -a              # ATTENZIONE: rimuove tutto cio' che non e' in uso
+docker system prune -a              # ATTENZIONE: rimuove tutto ciò che non è in uso
 sudo journalctl --vacuum-size=100M  # Limita i log di systemd a 100MB
 ```
