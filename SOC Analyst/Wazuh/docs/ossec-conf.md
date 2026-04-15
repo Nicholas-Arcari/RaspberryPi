@@ -1,6 +1,8 @@
+>  [English](ossec-conf.en.md) |  **Italiano**
+
 # Deep Dive: ossec.conf - il cuore della configurazione Wazuh
 
-Il file `/var/ossec/etc/ossec.conf` controlla il comportamento dell'intero agente/manager. Ecco le sezioni piu' importanti con spiegazione dei parametri.
+Il file `/var/ossec/etc/ossec.conf` controlla il comportamento dell'intero agente/manager. Ecco le sezioni più importanti con spiegazione dei parametri.
 
 ---
 
@@ -38,9 +40,9 @@ Il file `/var/ossec/etc/ossec.conf` controlla il comportamento dell'intero agent
 
 | Parametro | Significato | Impatto |
 |---|---|---|
-| `frequency` | Intervallo tra scan completi | Valori bassi = piu' CPU, rilevamento piu' rapido |
-| `realtime="yes"` | Usa `inotify` del kernel per rilevamento istantaneo | Non aspetta lo scan periodico, ma genera piu' eventi |
-| `check_sha256` | Calcola hash SHA-256 di ogni file | Se l'hash cambia, il file e' stato modificato - rileva anche modifiche che non cambiano timestamp |
+| `frequency` | Intervallo tra scan completi | Valori bassi = più CPU, rilevamento più rapido |
+| `realtime="yes"` | Usa `inotify` del kernel per rilevamento istantaneo | Non aspetta lo scan periodico, ma genera più eventi |
+| `check_sha256` | Calcola hash SHA-256 di ogni file | Se l'hash cambia, il file è stato modificato - rileva anche modifiche che non cambiano timestamp |
 | `alert_new_files` | Genera alert quando un file nuovo appare | Rileva dropper di malware che creano file in `/usr/bin` |
 | `ignore` | Esclude file/pattern dal monitoraggio | Essenziale per ridurre i falsi positivi (log che ruotano, file temporanei) |
 
@@ -108,7 +110,7 @@ Il file `/var/ossec/etc/ossec.conf` controlla il comportamento dell'intero agent
 - `syslog`: decoder standard che estrae timestamp, hostname, program, message
 - `json`: decoder JSON che estrae automaticamente tutti i campi come variabili
 - `audit`: per log di `auditd` (formato key=value)
-- `multi-line`: per log che si estendono su piu' righe
+- `multi-line`: per log che si estendono su più righe
 
 ---
 
@@ -174,4 +176,4 @@ Ogni alert viene indicizzato in un indice con naming pattern `wazuh-alerts-4.x-Y
 | `rule.mitre.id` | `rule.mitre.id: T1078` | Tutti gli eventi mappati a una tecnica MITRE |
 | `rule.pci_dss` | `rule.pci_dss: 10.2.5` | Tutti gli eventi rilevanti per PCI DSS compliance |
 | `agent.name` | `agent.name: raspberrypi` | Tutti gli eventi da un agente specifico |
-| `rule.firedtimes` | ordina per `rule.firedtimes` desc | Regole che si attivano piu' spesso (possibile attacco in corso) |
+| `rule.firedtimes` | ordina per `rule.firedtimes` desc | Regole che si attivano più spesso (possibile attacco in corso) |
