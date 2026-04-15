@@ -7,7 +7,7 @@
 # Progettato per Raspberry Pi 5 (8GB) con Raspberry Pi OS Lite 64-bit (Bookworm).
 #
 # PREREQUISITI:
-#   - Raspberry Pi OS Lite 64-bit gia' installato e accessibile via SSH
+#   - Raspberry Pi OS Lite 64-bit già installato e accessibile via SSH
 #   - Connessione Ethernet attiva
 #   - Accesso sudo
 #
@@ -26,7 +26,7 @@
 #   cowrie      - Cowrie Honeypot
 #   vlan        - VLAN 150 + rete IPVLAN
 #
-# NOTA: Questo script e' documentativo - ogni comando e' commentato per
+# NOTA: Questo script è documentativo - ogni comando è commentato per
 # spiegare cosa fa e perche'. Leggilo prima di eseguirlo.
 # =============================================================================
 
@@ -91,13 +91,13 @@ module_update() {
     log_ok "Sistema aggiornato"
 
     # Aggiorna il bootloader EEPROM se disponibile
-    # Il flag -a applica l'aggiornamento; il reboot e' necessario dopo
+    # Il flag -a applica l'aggiornamento; il reboot è necessario dopo
     if rpi-eeprom-update | grep -q "UPDATE AVAILABLE"; then
         log_info "Aggiornamento EEPROM disponibile, applico..."
         rpi-eeprom-update -a
         log_warn "Reboot necessario per attivare il nuovo bootloader"
     else
-        log_ok "EEPROM gia' aggiornato"
+        log_ok "EEPROM già aggiornato"
     fi
 }
 
@@ -111,7 +111,7 @@ module_hardening() {
     # Backup della configurazione originale
     cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.$(date +%Y%m%d)
 
-    # Applica hardening SSH solo se non gia' configurato da OMV
+    # Applica hardening SSH solo se non già configurato da OMV
     # OMV rigenera sshd_config dalla sua UI, quindi controlliamo prima
     if ! grep -q "PasswordAuthentication no" /etc/ssh/sshd_config; then
         log_info "Applicando hardening SSH..."
@@ -124,7 +124,7 @@ module_hardening() {
         systemctl restart ssh
         log_ok "SSH hardened (password disabilitate, root disabilitato)"
     else
-        log_ok "SSH gia' configurato"
+        log_ok "SSH già configurato"
     fi
 
     # --- FAIL2BAN ---
@@ -234,7 +234,7 @@ module_docker() {
     # Volume persistente per i dati di Portainer
     docker volume create portainer_data
 
-    # Avvia Portainer (se non gia' in esecuzione)
+    # Avvia Portainer (se non già in esecuzione)
     if ! docker ps --format '{{.Names}}' | grep -q "^portainer$"; then
         docker run -d \
             --name portainer \
@@ -246,7 +246,7 @@ module_docker() {
             portainer/portainer-ce:latest
         log_ok "Portainer avviato su https://$RASPBERRY_IP:9443"
     else
-        log_ok "Portainer gia' in esecuzione"
+        log_ok "Portainer già in esecuzione"
     fi
 }
 
@@ -287,7 +287,7 @@ module_pihole() {
         log_ok "Pi-hole avviato su http://$PIHOLE_IP (DNS: $PIHOLE_IP:53)"
         log_warn "Configura il router per usare $PIHOLE_IP come DNS primario"
     else
-        log_ok "Pi-hole gia' in esecuzione"
+        log_ok "Pi-hole già in esecuzione"
     fi
 }
 
@@ -361,7 +361,7 @@ module_cowrie() {
         log_ok "Cowrie avviato - SSH finto su porta 2222"
         log_warn "Configura Wazuh per ingestire /home/${SUDO_USER:-pi}/cowrie/log/cowrie.json"
     else
-        log_ok "Cowrie gia' in esecuzione"
+        log_ok "Cowrie già in esecuzione"
     fi
 }
 
@@ -377,7 +377,7 @@ module_vlan() {
         ip link set "${NET_INTERFACE}.${VLAN_ID}" up
         log_ok "Interfaccia ${NET_INTERFACE}.${VLAN_ID} creata"
     else
-        log_ok "Interfaccia ${NET_INTERFACE}.${VLAN_ID} gia' esistente"
+        log_ok "Interfaccia ${NET_INTERFACE}.${VLAN_ID} già esistente"
     fi
 
     # Persistenza al reboot
@@ -401,7 +401,7 @@ VLAN
             "ipvlan_${VLAN_ID}"
         log_ok "Rete Docker ipvlan_${VLAN_ID} creata"
     else
-        log_ok "Rete Docker ipvlan_${VLAN_ID} gia' esistente"
+        log_ok "Rete Docker ipvlan_${VLAN_ID} già esistente"
     fi
 
     log_warn "Verifica che lo switch sia configurato con VLAN $VLAN_ID trunk sulla porta del Pi"
