@@ -1,3 +1,5 @@
+>  [English](topologia-rete.en.md) |  **Italiano**
+
 # Topologia di rete
 
 Vista d'insieme di tutti i componenti, IP, porte e flussi dati del lab:
@@ -100,7 +102,7 @@ Vista d'insieme di tutti i componenti, IP, porte e flussi dati del lab:
 
 [2] BLOCCO DNS (Dispositivo LAN -> Pi-hole)
     Smartphone -> query DNS "ads.tracker.com" -> Pi-hole :53
-    -> gravity.db lookup -> BLOCKED (0.0.0.0) -> nessuna pubblicita'
+    -> gravity.db lookup -> BLOCKED (0.0.0.0) -> nessuna pubblicità
 
 [3] VPN REMOTA (Smartphone fuori casa -> LAN)
     Smartphone (4G) -> miodominio.ddns.net:51820/UDP -> Router
