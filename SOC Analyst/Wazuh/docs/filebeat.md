@@ -1,8 +1,10 @@
+>  [English](filebeat.en.md) |  **Italiano**
+
 # Filebeat: il "Postino" dei log
 
-## Perche' serve Filebeat
+## Perchè serve Filebeat
 
-Un errore comune e' vedere la Dashboard funzionante ma vuota, con l'errore **"No template found"**. Questo accade perche' manca il componente che trasporta gli alert dal Manager all'Indexer.
+Un errore comune è vedere la Dashboard funzionante ma vuota, con l'errore **"No template found"**. Questo accade perchè manca il componente che trasporta gli alert dal Manager all'Indexer.
 
 Il Manager scrive gli alert in `/var/ossec/logs/alerts/alerts.json`. L'Indexer aspetta di ricevere dati via HTTPS sulla porta 9200. Filebeat fa da ponte.
 
@@ -47,8 +49,8 @@ filebeat.modules:
 
 **Parametri critici:**
 
-- `output.elasticsearch`: nonostante il nome, punta all'Indexer (che e' un fork di Elasticsearch/OpenSearch)
-- `setup.ilm.enabled: false`: **fondamentale**. ILM (Index Lifecycle Management) e' una feature di Elasticsearch che crea indici con naming pattern diverso da quello atteso da Wazuh. Se abilitato, Filebeat crea indici `filebeat-7.x-*` invece di `wazuh-alerts-*` e la Dashboard non li trova
+- `output.elasticsearch`: nonostante il nome, punta all'Indexer (che è un fork di Elasticsearch/OpenSearch)
+- `setup.ilm.enabled: false`: **fondamentale**. ILM (Index Lifecycle Management) è una feature di Elasticsearch che crea indici con naming pattern diverso da quello atteso da Wazuh. Se abilitato, Filebeat crea indici `filebeat-7.x-*` invece di `wazuh-alerts-*` e la Dashboard non li trova
 - `ssl.verification_mode: none`: necessario con certificati self-signed
 
 ---
