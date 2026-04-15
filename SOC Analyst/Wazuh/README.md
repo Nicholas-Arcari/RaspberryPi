@@ -1,12 +1,14 @@
+>  [English](README.en.md) |  **Italiano**
+
 # Wazuh - SIEM & XDR su Raspberry Pi 5
 
-Guida completa all'installazione di Wazuh All-in-One (Manager + Indexer + Dashboard) su Raspberry Pi 5 con architettura ARM64. Questa installazione **non** e' supportata ufficialmente da Wazuh - documento qui il processo manuale che ho seguito, gli errori incontrati e le soluzioni adottate.
+Guida completa all'installazione di Wazuh All-in-One (Manager + Indexer + Dashboard) su Raspberry Pi 5 con architettura ARM64. Questa installazione **non** è supportata ufficialmente da Wazuh - documento qui il processo manuale che ho seguito, gli errori incontrati e le soluzioni adottate.
 
 ---
 
-## Teoria: Cos'e' Wazuh
+## Teoria: Cos'è Wazuh
 
-**Wazuh** e' una piattaforma open-source di sicurezza che combina:
+**Wazuh** è una piattaforma open-source di sicurezza che combina:
 
 - **SIEM** (Security Information and Event Management): raccoglie log da molteplici sorgenti, li normalizza, li correla e genera alert
 - **XDR** (Extended Detection and Response): estende il rilevamento oltre i log tradizionali, includendo endpoint protection, vulnerability assessment e compliance monitoring
@@ -42,13 +44,13 @@ Guida completa all'installazione di Wazuh All-in-One (Manager + Indexer + Dashbo
                                         visualizza e permette threat hunting
 ```
 
-**Perche' Filebeat?** Il Manager scrive gli alert in file JSON su disco. Filebeat agisce da "corriere" - legge questi file, li formatta e li invia all'Indexer via HTTPS. Senza Filebeat, la Dashboard sarebbe vuota perche' l'Indexer non riceverebbe dati.
+**Perchè Filebeat?** Il Manager scrive gli alert in file JSON su disco. Filebeat agisce da "corriere" - legge questi file, li formatta e li invia all'Indexer via HTTPS. Senza Filebeat, la Dashboard sarebbe vuota perchè l'Indexer non riceverebbe dati.
 
 ---
 
 ## La sfida: Wazuh su ARM64
 
-Wazuh e' progettato per architetture **x86_64**. Su Raspberry Pi (aarch64/ARM64):
+Wazuh è progettato per architetture **x86_64**. Su Raspberry Pi (aarch64/ARM64):
 
 - Lo script di installazione automatico (`wazuh-install.sh`) **fallisce** con "Uncompatible system" - non riconosce ARM64
 - I container Docker ufficiali sono compilati per `amd64`, non per `arm64` - causano errori `exec format error` all'avvio
@@ -56,7 +58,7 @@ Wazuh e' progettato per architetture **x86_64**. Su Raspberry Pi (aarch64/ARM64)
 
 **Soluzione adottata:** Installazione manuale dei pacchetti `.deb` ARM64 dal repository Wazuh, forzando l'architettura nel source list APT.
 
-> **Nota sulle risorse:** Il Raspberry Pi 5 con 8GB di RAM ce la fa, ma e' al limite. Con Wazuh All-in-One + Docker + Cowrie + Pi-hole attivi contemporaneamente, l'utilizzo RAM si aggira intorno ai 6-7GB. I 4GB non sarebbero sufficienti - l'Indexer (OpenSearch) richiede almeno 1GB di heap Java.
+> **Nota sulle risorse:** Il Raspberry Pi 5 con 8GB di RAM ce la fa, ma è al limite. Con Wazuh All-in-One + Docker + Cowrie + Pi-hole attivi contemporaneamente, l'utilizzo RAM si aggira intorno ai 6-7GB. I 4GB non sarebbero sufficienti - l'Indexer (OpenSearch) richiede almeno 1GB di heap Java.
 
 ---
 
@@ -77,7 +79,7 @@ Wazuh e' progettato per architetture **x86_64**. Su Raspberry Pi (aarch64/ARM64)
 
 ## Stato attuale del sistema
 
-Il sistema e' pienamente operativo:
+Il sistema è pienamente operativo:
 
 - **Dashboard**: raggiungibile via HTTPS su IP locale porta 443
 - **Ingestione log**: Filebeat attivo, indici `wazuh-alerts-*` popolati
