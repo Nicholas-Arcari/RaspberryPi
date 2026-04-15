@@ -1,14 +1,16 @@
-# Alert Fatigue e Tuning: il problema piu' sottovalutato
+>  [English](alert-fatigue.en.md) |  **Italiano**
 
-## Cos'e' l'alert fatigue
+# Alert Fatigue e Tuning: il problema più sottovalutato
 
-L'alert fatigue si verifica quando un analista riceve **troppi alert** (la maggior parte dei quali sono falsi positivi o eventi a bassa priorita'), al punto da iniziare a ignorarli sistematicamente. In un SOC enterprise, un analista L1 puo' ricevere 500-1000+ alert al giorno. Se il 95% sono falsi positivi, la probabilita' che ignori il 5% di veri incidenti e' alta.
+## Cos'è l'alert fatigue
+
+L'alert fatigue si verifica quando un analista riceve **troppi alert** (la maggior parte dei quali sono falsi positivi o eventi a bassa priorità), al punto da iniziare a ignorarli sistematicamente. In un SOC enterprise, un analista L1 può ricevere 500-1000+ alert al giorno. Se il 95% sono falsi positivi, la probabilità che ignori il 5% di veri incidenti è alta.
 
 **Nel nostro lab** il problema si manifesta in scala ridotta ma reale: Cowrie genera decine di alert per ogni bot che scansiona la porta 2222. Se ogni singolo tentativo di login fallito genera un alert livello 5, la dashboard diventa inutilizzabile in poche ore.
 
 ## Strategie di tuning
 
-**1. Regolare i livelli di severita':**
+**1. Regolare i livelli di severità:**
 
 Le regole Wazuh hanno livelli da 0 (nessun alert) a 15 (emergenza). Il tuning consiste nell'alzare la soglia di notifica e regolare i livelli in base al contesto:
 
@@ -50,7 +52,7 @@ Invece di generare un alert per ogni singolo evento, raggruppare eventi correlat
 
 ```xml
 <!-- Regola figlio: si attiva solo se la regola 100012 (login success)
-     e' stata triggerata dallo stesso IP che ha anche triggerato
+     è stata triggerata dallo stesso IP che ha anche triggerato
      la regola 100013 (command executed) entro 300 secondi -->
 <rule id="100015" level="12">
   <if_matched_sid>100012</if_matched_sid>
@@ -62,4 +64,4 @@ Invece di generare un alert per ogni singolo evento, raggruppare eventi correlat
 </rule>
 ```
 
-> **Regola d'oro del tuning**: un alert deve richiedere un'azione. Se un analista guarda un alert e la risposta e' sistematicamente "ignora", quella regola va tuned (livello abbassato, soglia alzata, o esclusa). Il tuning non e' un'attivita' una tantum - e' un processo continuo che migliora nel tempo man mano che si capiscono i pattern del proprio ambiente
+> **Regola d'oro del tuning**: un alert deve richiedere un'azione. Se un analista guarda un alert e la risposta è sistematicamente "ignora", quella regola va tuned (livello abbassato, soglia alzata, o esclusa). Il tuning non è un'attività una tantum - è un processo continuo che migliora nel tempo man mano che si capiscono i pattern del proprio ambiente
