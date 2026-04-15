@@ -1,3 +1,5 @@
+>  [English](correlazione-eventi.en.md) |  **Italiano**
+
 # Correlazione eventi e Test finale
 
 ## Test finale: verifica end-to-end
@@ -12,16 +14,16 @@ Per confermare che tutto funzionasse in uno scenario reale:
 ssh root@<indirizzo_ngrok> -p <porta_ngrok>
 ```
 
-4. L'accesso all'Honeypot e' stato garantito
-5. **Immediatamente** sulla Dashboard di Wazuh e' scattato l'allarme "Intrusione Rilevata" (rule 100012, livello 10)
+4. L'accesso all'Honeypot è stato garantito
+5. **Immediatamente** sulla Dashboard di Wazuh è scattato l'allarme "Intrusione Rilevata" (rule 100012, livello 10)
 
-Il sistema e' online, monitorato e funzionante.
+Il sistema è online, monitorato e funzionante.
 
 ---
 
 ## Alert Wazuh generato dall'intrusione
 
-Questo e' l'alert JSON reale (anonimizzato) che Wazuh ha generato nel momento in cui ho effettuato il login sull'Honeypot via Ngrok:
+Questo è l'alert JSON reale (anonimizzato) che Wazuh ha generato nel momento in cui ho effettuato il login sull'Honeypot via Ngrok:
 
 ```json
 {
@@ -69,11 +71,11 @@ Questo e' l'alert JSON reale (anonimizzato) che Wazuh ha generato nel momento in
 
 | Campo | Valore | Significato |
 |---|---|---|
-| `rule.level` | `10` | Severita' alta (scala 0-15). Livello 10 = attivita' sospetta che richiede attenzione immediata |
+| `rule.level` | `10` | Severità alta (scala 0-15). Livello 10 = attività sospetta che richiede attenzione immediata |
 | `rule.id` | `100012` | Regola custom definita in `/var/ossec/etc/rules/local_rules.xml` sul Manager |
 | `rule.mitre` | T1078, T1110 | Mapping automatico alle tecniche MITRE ATT&CK per contestualizzare l'attacco |
 | `data.cowrie.src_ip` | `XX.XX.XX.XX` | IP sorgente dell'attaccante. In questo caso, l'IP pubblico dell'hotspot del cellulare (passato attraverso Ngrok) |
-| `data.cowrie.password` | `12345` | Password usata - Cowrie registra **tutte** le credenziali tentate, utili per analisi statistica delle password piu' comuni |
+| `data.cowrie.password` | `12345` | Password usata - Cowrie registra **tutte** le credenziali tentate, utili per analisi statistica delle password più comuni |
 | `data.cowrie.session` | `a1b2c3d4e5f6` | Identificativo univoco della sessione. Permette di correlare tutti gli eventi di una stessa sessione (login, comandi, download) |
 | `location` | `/var/log/cowrie/cowrie.json` | File sorgente del log, monitorato dall'agente Wazuh tramite inotify |
 
@@ -115,7 +117,7 @@ Per ricostruire l'intera sequenza su Wazuh Dashboard (OpenSearch Dashboards), qu
 data.cowrie.session: "a1b2c3d4e5f6" OR data.srcip: "XX.XX.XX.XX"
 ```
 
-Ordinando per `timestamp` ascendente, si ottiene la timeline completa: dal primo tentativo di login fallito, al successo, ai comandi eseguiti nella sessione honeypot, fino all'eventuale download di file. Questo e' esattamente il workflow che un analista SOC L1 seguirebbe durante il triage di un alert reale.
+Ordinando per `timestamp` ascendente, si ottiene la timeline completa: dal primo tentativo di login fallito, al successo, ai comandi eseguiti nella sessione honeypot, fino all'eventuale download di file. Questo è esattamente il workflow che un analista SOC L1 seguirebbe durante il triage di un alert reale.
 
 ### Correlazione con i log di rete (UFW)
 
@@ -131,12 +133,12 @@ I log di UFW (`/var/log/ufw.log`) completano il quadro con il livello di rete:
 
 | Campo | Significato |
 |---|---|
-| `[UFW BLOCK]` | Il pacchetto e' stato bloccato (dopo la remediation) |
+| `[UFW BLOCK]` | Il pacchetto è stato bloccato (dopo la remediation) |
 | `SRC=XX.XX.XX.XX` | IP sorgente dell'attaccante |
 | `DPT=9200` | Porta di destinazione - l'attaccante ha tentato di raggiungere OpenSearch |
-| `SYN` | Flag TCP - e' il primo pacchetto di un handshake (scansione) |
+| `SYN` | Flag TCP - è il primo pacchetto di un handshake (scansione) |
 | `WINDOW=1024` | Window size tipica di Nmap SYN scan (fingerprint del tool) |
 
-La correlazione tra il `SRC` del log UFW e il `data.cowrie.src_ip` dell'alert Wazuh conferma che lo stesso IP ha prima scansionato le porte (bloccato da UFW su 9200) e poi si e' concentrato sulla porta 2222 (Honeypot, aperta intenzionalmente).
+La correlazione tra il `SRC` del log UFW e il `data.cowrie.src_ip` dell'alert Wazuh conferma che lo stesso IP ha prima scansionato le porte (bloccato da UFW su 9200) e poi si è concentrato sulla porta 2222 (Honeypot, aperta intenzionalmente).
 
-> **Lezione da analista:** Un singolo alert non racconta mai la storia completa. La vera analisi inizia quando si correlano eventi da fonti diverse (firewall, honeypot, SIEM) per ricostruire l'intera catena d'attacco. Questo e' il valore di avere un SIEM centralizzato come Wazuh: tutti i log convergono in un unico punto, rendendo la correlazione possibile.
+> **Lezione da analista:** Un singolo alert non racconta mai la storia completa. La vera analisi inizia quando si correlano eventi da fonti diverse (firewall, honeypot, SIEM) per ricostruire l'intera catena d'attacco. Questo è il valore di avere un SIEM centralizzato come Wazuh: tutti i log convergono in un unico punto, rendendo la correlazione possibile.
