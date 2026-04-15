@@ -1,8 +1,10 @@
+>  [English](suricata.en.md) |  **Italiano**
+
 # Suricata IDS/IPS: la componente che manca a Wazuh
 
-Wazuh e' eccellente nell'analisi dei log (host-based detection), ma e' cieco sul **traffico di rete**. Non vede pacchetti malformati, exploit di rete, comunicazioni C2 (Command & Control), o DNS tunneling - vede solo cio' che i log applicativi riportano.
+Wazuh è eccellente nell'analisi dei log (host-based detection), ma è cieco sul **traffico di rete**. Non vede pacchetti malformati, exploit di rete, comunicazioni C2 (Command & Control), o DNS tunneling - vede solo ciò che i log applicativi riportano.
 
-**Suricata** e' un Network IDS/IPS open-source che analizza il traffico in tempo reale con regole signature-based. L'abbinamento Wazuh + Suricata e' lo standard de facto per un SOC completo:
+**Suricata** è un Network IDS/IPS open-source che analizza il traffico in tempo reale con regole signature-based. L'abbinamento Wazuh + Suricata è lo standard de facto per un SOC completo:
 
 ```
 Traffico di rete --> [Suricata] --> eve.json --> [Wazuh Agent] --> [Manager] --> Dashboard
@@ -34,7 +36,7 @@ Traffico di rete --> [Suricata] --> eve.json --> [Wazuh Agent] --> [Manager] -->
 ## Installazione su Raspberry Pi
 
 ```bash
-# Suricata e' nei repository Debian
+# Suricata è nei repository Debian
 sudo apt install suricata suricata-oinkmaster -y
 
 # Verifica versione
@@ -107,7 +109,7 @@ Sul **Manager**, aggiungere Suricata come sorgente di log in `/var/ossec/etc/oss
 </localfile>
 ```
 
-Wazuh ha gia' **regole built-in per Suricata** (rule group `suricata`). Dopo il restart del Manager, gli alert Suricata appariranno automaticamente sulla Dashboard con il mapping MITRE ATT&CK.
+Wazuh ha già **regole built-in per Suricata** (rule group `suricata`). Dopo il restart del Manager, gli alert Suricata appariranno automaticamente sulla Dashboard con il mapping MITRE ATT&CK.
 
 Esempio di alert correlato sulla Dashboard:
 
@@ -119,4 +121,4 @@ Esempio di alert correlato sulla Dashboard:
     = Possibile compromissione del PC Windows con Emotet
 ```
 
-> **Nota sulle risorse:** Suricata su Raspberry Pi 5 funziona, ma con limitazioni. Su una LAN gigabit saturata, Suricata potrebbe droppare pacchetti. Per il nostro uso (traffico domestico, ~10-50 Mbps), e' piu' che sufficiente. Monitorare con `suricata -c /etc/suricata/suricata.yaml --dump-config | grep "detect.profile"` e `sudo suricatasc -c "dump-counters"`.
+> **Nota sulle risorse:** Suricata su Raspberry Pi 5 funziona, ma con limitazioni. Su una LAN gigabit saturata, Suricata potrebbe droppare pacchetti. Per il nostro uso (traffico domestico, ~10-50 Mbps), è più che sufficiente. Monitorare con `suricata -c /etc/suricata/suricata.yaml --dump-config | grep "detect.profile"` e `sudo suricatasc -c "dump-counters"`.
