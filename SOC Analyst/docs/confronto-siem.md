@@ -1,6 +1,8 @@
-# Perche' Wazuh e non Splunk (o altri SIEM)
+>  [English](confronto-siem.en.md) |  **Italiano**
 
-La scelta del SIEM e' una decisione architetturale critica. Wazuh non e' stato scelto "perche' e' gratis" - e' stato scelto per ragioni tecniche specifiche al nostro caso d'uso.
+# Perchè Wazuh e non Splunk (o altri SIEM)
+
+La scelta del SIEM è una decisione architetturale critica. Wazuh non è stato scelto "perchè è gratis" - è stato scelto per ragioni tecniche specifiche al nostro caso d'uso.
 
 ## Confronto architetturale
 
@@ -21,11 +23,11 @@ La scelta del SIEM e' una decisione architetturale critica. Wazuh non e' stato s
 
 1. **ARM64**: Splunk semplicemente non gira su Raspberry Pi. Fine della discussione per il nostro hardware. Se avessimo un server x86_64 con 32GB di RAM, Splunk Enterprise sarebbe una scelta valida
 
-2. **All-in-one**: Wazuh non e' solo un SIEM - e' anche un XDR. L'agent fa FIM, vulnerability detection, rootcheck, log collection e compliance in un unico pacchetto. Con Splunk, dovresti installare separatamente: Universal Forwarder + OSSEC/Tripwire (FIM) + Nessus/OpenVAS (vulnerability) + tool di compliance
+2. **All-in-one**: Wazuh non è solo un SIEM - è anche un XDR. L'agent fa FIM, vulnerability detection, rootcheck, log collection e compliance in un unico pacchetto. Con Splunk, dovresti installare separatamente: Universal Forwarder + OSSEC/Tripwire (FIM) + Nessus/OpenVAS (vulnerability) + tool di compliance
 
-3. **Active Response**: Wazuh puo' bloccare un IP automaticamente quando un alert raggiunge una certa soglia. Splunk richiede un SOAR separato (Splunk SOAR, ex Phantom) - un altro prodotto a pagamento
+3. **Active Response**: Wazuh può bloccare un IP automaticamente quando un alert raggiunge una certa soglia. Splunk richiede un SOAR separato (Splunk SOAR, ex Phantom) - un altro prodotto a pagamento
 
-4. **Costo**: Per un home lab educativo, il costo di Splunk e' proibitivo. Wazuh offre il 90% delle funzionalita' a costo zero
+4. **Costo**: Per un home lab educativo, il costo di Splunk è proibitivo. Wazuh offre il 90% delle funzionalità a costo zero
 
 ## Se volessi migrare a Splunk (su hardware x86_64)
 
@@ -78,4 +80,4 @@ action.email = 1
 cron_schedule = */5 * * * *
 ```
 
-> **Nota per chi studia:** In un colloquio per SOC analyst, saper spiegare le differenze architetturali tra Wazuh e Splunk (e quando usare l'uno o l'altro) e' un punto a favore. Wazuh per lab/PMI con budget limitato e bisogno di agent integrati. Splunk per enterprise con budget, volumi di dati elevati e necessita' di SPL per query complesse.
+> **Nota per chi studia:** In un colloquio per SOC analyst, saper spiegare le differenze architetturali tra Wazuh e Splunk (e quando usare l'uno o l'altro) è un punto a favore. Wazuh per lab/PMI con budget limitato e bisogno di agent integrati. Splunk per enterprise con budget, volumi di dati elevati e necessità di SPL per query complesse.
