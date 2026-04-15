@@ -1,6 +1,8 @@
+>  [English](threat-model.en.md) |  **Italiano**
+
 # Threat Model: analisi STRIDE del lab
 
-Un threat model formalizzato identifica **cosa proteggere**, **da chi**, e **come puo' essere attaccato** - prima che succeda. Uso il framework **STRIDE** (Microsoft), che classifica le minacce in 6 categorie.
+Un threat model formalizzato identifica **cosa proteggere**, **da chi**, e **come può essere attaccato** - prima che succeda. Uso il framework **STRIDE** (Microsoft), che classifica le minacce in 6 categorie.
 
 ---
 
@@ -43,25 +45,25 @@ Un threat model formalizzato identifica **cosa proteggere**, **da chi**, e **com
     +-----------    ----------------------+
 ```
 
-Porte esposte a Internet: **solo 2** (Honeypot e WireGuard). Tutto il resto e' accessibile solo dalla LAN.
+Porte esposte a Internet: **solo 2** (Honeypot e WireGuard). Tutto il resto è accessibile solo dalla LAN.
 
 ---
 
 ## Attaccanti probabili
 
-| Tipo | Motivazione | Capacita' | Probabilita' |
+| Tipo | Motivazione | Capacità | Probabilità |
 |---|---|---|---|
 | **Bot automatici** (Mirai, scanner SSH) | Aggiungere il Pi a una botnet | Bassa (credenziali comuni, exploit noti) | **Altissima** (24/7, migliaia al giorno) |
-| **Script kiddie** | Curiosita', vandalismo | Bassa-Media (tool preconfigurati) | Media |
+| **Script kiddie** | Curiosità, vandalismo | Bassa-Media (tool preconfigurati) | Media |
 | **Attaccante mirato** | Accesso ai dati del NAS | Media-Alta (exploit custom, persistence) | Bassa (home lab, non high-value target) |
-| **Insider** (chiunque sulla LAN) | Accesso non autorizzato | Alta (gia' dentro la rete) | Bassa (ambiente domestico) |
+| **Insider** (chiunque sulla LAN) | Accesso non autorizzato | Alta (già dentro la rete) | Bassa (ambiente domestico) |
 
 ---
 
 ## Analisi STRIDE per componente
 
 **STRIDE** classifica le minacce in:
-- **S**poofing (impersonare un'identita')
+- **S**poofing (impersonare un'identità)
 - **T**ampering (modificare dati o codice)
 - **R**epudiation (negare di aver compiuto un'azione)
 - **I**nformation Disclosure (esporre informazioni riservate)
@@ -81,8 +83,8 @@ Porte esposte a Internet: **solo 2** (Honeypot e WireGuard). Tutto il resto e' a
 
 | Minaccia | Categoria | Scenario concreto | Mitigazione |
 |---|---|---|---|
-| Chiave privata compromessa | **S** | Se qualcuno ruba la chiave privata di un client, puo' impersonare quel client VPN | Chiavi salvate solo sul dispositivo, revoca immediata dalla Web UI wg-easy |
-| Brute force chiave | **S** | Tentare di indovinare la chiave Curve25519 | Impossibile: 2^128 combinazioni, non c'e' negoziazione (il server ignora pacchetti con chiave sbagliata silenziosamente) |
+| Chiave privata compromessa | **S** | Se qualcuno ruba la chiave privata di un client, può impersonare quel client VPN | Chiavi salvate solo sul dispositivo, revoca immediata dalla Web UI wg-easy |
+| Brute force chiave | **S** | Tentare di indovinare la chiave Curve25519 | Impossibile: 2^128 combinazioni, non c'è negoziazione (il server ignora pacchetti con chiave sbagliata silenziosamente) |
 | Credential stuffing Web UI | **E** | Brute force sulla porta 51821 (Web UI di gestione) | Web UI accessibile solo dalla LAN (UFW), password robusta |
 | Replay attack | **T** | Catturare e riprodurre pacchetti VPN | WireGuard usa nonce counter monotonicamente crescente: replay vengono scartati |
 
@@ -90,7 +92,7 @@ Porte esposte a Internet: **solo 2** (Honeypot e WireGuard). Tutto il resto e' a
 
 | Minaccia | Categoria | Scenario concreto | Mitigazione |
 |---|---|---|---|
-| Alert tampering | **T** | L'attaccante modifica o cancella gli alert per nascondere la sua attivita' | Accesso Dashboard solo dalla LAN, credenziali robuste, FIM su `/var/ossec/logs/` |
+| Alert tampering | **T** | L'attaccante modifica o cancella gli alert per nascondere la sua attività | Accesso Dashboard solo dalla LAN, credenziali robuste, FIM su `/var/ossec/logs/` |
 | API abuse | **E** | Accesso non autorizzato all'API Wazuh (porta 55000) per registrare agent fasulli | UFW: porta 55000 solo dalla LAN, autenticazione API con token |
 | Information disclosure | **I** | Gli alert contengono password honeypot, IP interni, configurazioni - se leggibili dall'esterno | Porta 9200 (OpenSearch) non esposta a Internet, TLS per tutte le comunicazioni |
 | Log injection | **T** | Un agent compromesso invia log falsi al Manager per generare falsi positivi | mTLS: solo agent con certificato firmato dalla stessa CA possono comunicare |
@@ -107,9 +109,9 @@ Porte esposte a Internet: **solo 2** (Honeypot e WireGuard). Tutto il resto e' a
 
 ## Rischi residui accettati
 
-Nessun sistema e' sicuro al 100%. Questi sono i rischi che ho consapevolmente accettato:
+Nessun sistema è sicuro al 100%. Questi sono i rischi che ho consapevolmente accettato:
 
-| Rischio residuo | Perche' lo accetto | Mitigazione parziale |
+| Rischio residuo | Perchè lo accetto | Mitigazione parziale |
 |---|---|---|
 | Kernel exploit = container escape | Impossibile da eliminare senza VM (overhead eccessivo per RPi) | Kernel aggiornato, seccomp, AppArmor |
 | Ngrok tunnel = terza parte | Il traffico dell'honeypot transita per i server Ngrok | Nessun dato sensibile transita (solo sessioni honeypot) |
