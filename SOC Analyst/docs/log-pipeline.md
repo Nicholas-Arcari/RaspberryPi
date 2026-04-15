@@ -1,6 +1,8 @@
+>  [English](log-pipeline.en.md) |  **Italiano**
+
 # Log Pipeline: il flusso dei dati dalla sorgente alla Dashboard
 
-Capire come i log viaggiano dalla sorgente all'alert visualizzato sulla dashboard e' essenziale per diagnosticare problemi ("perche' non vedo questo evento?") e per progettare nuove integrazioni.
+Capire come i log viaggiano dalla sorgente all'alert visualizzato sulla dashboard è essenziale per diagnosticare problemi ("perchè non vedo questo evento?") e per progettare nuove integrazioni.
 
 ```
 SORGENTI                    RACCOLTA              ELABORAZIONE           STORAGE            VISUALIZZAZIONE
@@ -26,9 +28,9 @@ FIM (syscheck)     ──┘      Porta 1514/TCP        local_rules.xml        I
 
 **Fase 2 - Decodifica (Manager)**: Il demone `ossec-analysisd` riceve gli eventi e li passa attraverso i **decoder** - regex che estraggono campi strutturati dal testo grezzo. Esempio: dal testo `Failed password for root from 192.168.0.50 port 54321 ssh2`, il decoder SSH estrae `user=root`, `srcip=192.168.0.50`, `srcport=54321`.
 
-**Fase 3 - Regole (Manager)**: I campi decodificati vengono confrontati con la **rule chain** - migliaia di regole ordinate per ID. Le regole possono essere atomiche ("se vedi X, alerta") o composite ("se vedi X piu' di 5 volte in 60 secondi, alerta"). Solo gli eventi che matchano una regola con livello >= 3 generano un alert.
+**Fase 3 - Regole (Manager)**: I campi decodificati vengono confrontati con la **rule chain** - migliaia di regole ordinate per ID. Le regole possono essere atomiche ("se vedi X, alerta") o composite ("se vedi X più di 5 volte in 60 secondi, alerta"). Solo gli eventi che matchano una regola con livello >= 3 generano un alert.
 
-**Fase 4 - Arricchimento (Manager)**: L'alert JSON viene arricchito con metadati: mapping MITRE ATT&CK, informazioni sull'agente, GeoIP dell'IP sorgente (se configurato), punteggio CVSS per vulnerabilita'.
+**Fase 4 - Arricchimento (Manager)**: L'alert JSON viene arricchito con metadati: mapping MITRE ATT&CK, informazioni sull'agente, GeoIP dell'IP sorgente (se configurato), punteggio CVSS per vulnerabilità.
 
 **Fase 5 - Indicizzazione (Filebeat → Indexer)**: Filebeat legge gli alert JSON da `/var/ossec/logs/alerts/alerts.json` e li invia all'Indexer (OpenSearch) via HTTPS con autenticazione TLS mutua. L'Indexer indicizza i campi per ricerche rapide e li archivia in indici giornalieri (`wazuh-alerts-4.x-2025.04.08`).
 
@@ -40,6 +42,6 @@ FIM (syscheck)     ──┘      Porta 1514/TCP        local_rules.xml        I
 |---|---|---|
 | Nessun alert sulla Dashboard | Qualsiasi | Partire dal fondo: l'indice esiste? Filebeat gira? Il Manager riceve eventi? |
 | L'agente risulta "Disconnected" | Fase 1 | `sudo systemctl status wazuh-agent`, verificare porte 1514/1515 su UFW |
-| L'evento arriva ma non genera alert | Fase 3 | Testare con `wazuh-logtest` - il log matcha una regola? Il livello e' >= 3? |
+| L'evento arriva ma non genera alert | Fase 3 | Testare con `wazuh-logtest` - il log matcha una regola? Il livello è >= 3? |
 | L'alert appare nei log ma non sulla Dashboard | Fase 5 | `sudo systemctl status filebeat`, controllare la connessione Filebeat → Indexer |
 | Query sulla Dashboard non trova risultati | Fase 6 | Verificare il range temporale selezionato, controllare il nome dell'indice |
