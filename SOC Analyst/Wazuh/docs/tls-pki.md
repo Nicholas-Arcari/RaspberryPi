@@ -1,12 +1,14 @@
+>  [English](tls-pki.en.md) |  **Italiano**
+
 # TLS/PKI: crittografia e certificati in Wazuh
 
 Wazuh usa comunicazione TLS/SSL tra tutti i componenti. In un setup All-in-One (tutto sullo stesso host), i certificati sono auto-firmati (self-signed), ma comunque necessari per la cifratura del trasporto.
 
 ---
 
-## Come funziona TLS e perche' serve a Wazuh
+## Come funziona TLS e perchè serve a Wazuh
 
-**TLS (Transport Layer Security)** e' il protocollo che cifra la comunicazione tra due endpoint. Quando Filebeat invia alert all'Indexer, il traffico passa su HTTPS (HTTP + TLS). Senza TLS, gli alert (che contengono IP, username, password honeypot) transiterebbero in chiaro sulla rete.
+**TLS (Transport Layer Security)** è il protocollo che cifra la comunicazione tra due endpoint. Quando Filebeat invia alert all'Indexer, il traffico passa su HTTPS (HTTP + TLS). Senza TLS, gli alert (che contengono IP, username, password honeypot) transiterebbero in chiaro sulla rete.
 
 L'handshake TLS 1.2 (usato da Wazuh) si svolge cosi':
 
@@ -27,10 +29,10 @@ Filebeat (client)                                    Indexer (server)
        |   (richiesta del certificato CLIENT: mutual TLS)   |
        |                                                    |
        |   Il client VERIFICA il certificato del server:    |
-       |   1. La firma e' valida? (verificata con root-ca)  |
+       |   1. La firma è valida? (verificata con root-ca)  |
        |   2. Il CN/SAN corrisponde all'hostname?           |
-       |   3. Il certificato e' scaduto?                    |
-       |   4. E' nella CRL (revocation list)?               |
+       |   3. Il certificato è scaduto?                    |
+       |   4. è nella CRL (revocation list)?               |
        |                                                    |
        |-- Certificate (filebeat.pem) -------------------->|
        |-- ClientKeyExchange (pre-master secret cifrato    |
@@ -56,9 +58,9 @@ In un TLS "normale" (es. visitare https://google.com), solo il **server** presen
 
 In Wazuh, si usa **mutual TLS (mTLS)**: anche il **client** (Filebeat, Agent) deve presentare un certificato firmato dalla stessa CA. Questo garantisce che:
 
-- Solo Filebeat con un certificato valido puo' inviare dati all'Indexer
+- Solo Filebeat con un certificato valido può inviare dati all'Indexer
 - Solo agenti con certificato valido possono comunicare con il Manager
-- Un attaccante che intercetta il traffico non puo' iniettare alert fasulli (non ha il certificato)
+- Un attaccante che intercetta il traffico non può iniettare alert fasulli (non ha il certificato)
 
 ---
 
@@ -82,7 +84,7 @@ Certificate:
         Validity
             Not Before: Jan  1 00:00:00 2025 GMT
             Not After : Jan  1 00:00:00 2035 GMT  <-- Scadenza (10 anni di default)
-        Subject: CN = node-1                   <-- Identita' del certificato
+        Subject: CN = node-1                   <-- Identità del certificato
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
             RSA Public-Key: (2048 bit)
@@ -91,12 +93,12 @@ Certificate:
                 IP Address:127.0.0.1
 ```
 
-| Campo | Significato | Perche' conta |
+| Campo | Significato | Perchè conta |
 |---|---|---|
 | `Issuer` | La CA che ha firmato il certificato | Il client verifica che l'Issuer sia nel suo trust store (`root-ca.pem`) |
-| `Subject (CN)` | Common Name - identita' del server | Deve corrispondere al nome con cui il client si connette |
+| `Subject (CN)` | Common Name - identità del server | Deve corrispondere al nome con cui il client si connette |
 | `SAN` | Subject Alternative Name - IP/hostname alternativi | Standard moderno: TLS verifica il SAN, non il CN. Se manca l'IP `127.0.0.1`, la connessione fallisce con "certificate verify failed" |
-| `Validity` | Periodo di validita' | Un certificato scaduto viene rifiutato. Causa comune di "Wazuh non parte dopo un anno" |
+| `Validity` | Periodo di validità | Un certificato scaduto viene rifiutato. Causa comune di "Wazuh non parte dopo un anno" |
 | `Serial Number` | Identificativo univoco | Usato per la revocation (CRL/OCSP) |
 
 ---
@@ -122,6 +124,6 @@ Quando Filebeat si connette all'Indexer:
 5. Se la verifica passa -> connessione accettata
 6. Se fallisce -> "certificate verify failed" e connessione rifiutata
 
-> **Perche' self-signed va bene nel nostro caso:** In un ambiente pubblico (siti web), i certificati devono essere firmati da una CA riconosciuta (Let's Encrypt, DigiCert) perche' i browser hanno una lista pre-installata di CA fidate. Nel nostro lab, tutti i componenti sono sullo stesso host e controlliamo la distribuzione dei certificati - una CA self-signed e' sufficiente e non introduce rischi aggiuntivi.
+> **Perchè self-signed va bene nel nostro caso:** In un ambiente pubblico (siti web), i certificati devono essere firmati da una CA riconosciuta (Let's Encrypt, DigiCert) perchè i browser hanno una lista pre-installata di CA fidate. Nel nostro lab, tutti i componenti sono sullo stesso host e controlliamo la distribuzione dei certificati - una CA self-signed è sufficiente e non introduce rischi aggiuntivi.
 
-**Errore comune:** Se dopo aver rigenerato i certificati un componente non parte, verificare che il `root-ca.pem` sia stato copiato in **tutte** le directory (`/etc/wazuh-indexer/certs/`, `/etc/filebeat/certs/`, etc.). Un solo componente con la vecchia CA cautera' errori TLS nella pipeline.
+**Errore comune:** Se dopo aver rigenerato i certificati un componente non parte, verificare che il `root-ca.pem` sia stato copiato in **tutte** le directory (`/etc/wazuh-indexer/certs/`, `/etc/filebeat/certs/`, etc.). Un solo componente con la vecchia CA cauterà errori TLS nella pipeline.
