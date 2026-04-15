@@ -1,10 +1,12 @@
+>  [English](README.en.md) |  **Italiano**
+
 # Raspberry Pi 5 - Home Lab di Cyber Security & NAS
 
 > Documentazione completa di un progetto reale per trasformare un Raspberry Pi 5 in un server multifunzione: NAS, SIEM, Honeypot, VPN, DNS Sinkhole e molto altro. Scritto da chi ci ha messo le mani, con errori, fix e lezioni imparate sul campo.
 
-Questo repository raccoglie l'intera esperienza - dalla prima accensione al deployment finale - di un Raspberry Pi 5 configurato come infrastruttura di sicurezza domestica. Non e' una raccolta di comandi copiati da StackOverflow: ogni sezione documenta il **perche'** di ogni scelta, i problemi incontrati e le soluzioni adottate.
+Questo repository raccoglie l'intera esperienza - dalla prima accensione al deployment finale - di un Raspberry Pi 5 configurato come infrastruttura di sicurezza domestica. Non è una raccolta di comandi copiati da StackOverflow: ogni sezione documenta il **perche'** di ogni scelta, i problemi incontrati e le soluzioni adottate.
 
-Il sistema operativo di base e' **OpenMediaVault 7** (Debian-based), scelto per la gestione NAS nativa. Tutti i servizi aggiuntivi (SIEM, VPN, Honeypot, DNS Blocker) girano in **container Docker**, garantendo isolamento, portabilita' e la possibilita' di distruggere e ricreare un servizio senza toccare il sistema host.
+Il sistema operativo di base è **OpenMediaVault 7** (Debian-based), scelto per la gestione NAS nativa. Tutti i servizi aggiuntivi (SIEM, VPN, Honeypot, DNS Blocker) girano in **container Docker**, garantendo isolamento, portabilità e la possibilità di distruggere e ricreare un servizio senza toccare il sistema host.
 
 ---
 
@@ -88,9 +90,9 @@ Raspberry Pi 5 (8GB RAM) - Raspberry Pi OS Lite 64-bit (Bookworm)
 |---|---|---|
 | **Board** | Raspberry Pi 5 (8GB RAM) | I 4GB sono insufficienti per Wazuh Indexer + Dashboard |
 | **Storage primario** | NVMe SSD M.2 2280 PCIe Gen 3x4 | Nel mio caso: Patriot P320 256GB |
-| **Adattatore NVMe** | HAT/adattatore PCIe per RPi5 | Verificare compatibilita' e alimentazione |
+| **Adattatore NVMe** | HAT/adattatore PCIe per RPi5 | Verificare compatibilità e alimentazione |
 | **Storage secondario** | MicroSD 16GB+ | Solo per recovery; il boot avviene da NVMe |
-| **Alimentazione** | Alimentatore ufficiale RPi5 27W (5.1V/5A) | Con NVMe collegato, un alimentatore sottodimensionato causa instabilita' |
+| **Alimentazione** | Alimentatore ufficiale RPi5 27W (5.1V/5A) | Con NVMe collegato, un alimentatore sottodimensionato causa instabilità |
 | **Rete** | Cavo Ethernet Cat5e/Cat6 | Wi-Fi sconsigliato per un server; MacVLAN richiede Ethernet |
 | **Switch** | Switch gestito (managed) | Necessario solo per VLAN tagging 802.1Q |
 | **Router** | Con supporto DDNS e Port Forwarding | Nel mio caso: TP-Link Archer C50 |
@@ -140,7 +142,7 @@ Per chi parte da zero, l'ordine consigliato e':
 
 ## Script di automazione
 
-Lo script [`scripts/setup.sh`](./scripts/setup.sh) riproduce l'intero lab da zero. Ogni comando e' commentato con la spiegazione di cosa fa e perche'. Supporta l'esecuzione modulare:
+Lo script [`scripts/setup.sh`](./scripts/setup.sh) riproduce l'intero lab da zero. Ogni comando è commentato con la spiegazione di cosa fa e perche'. Supporta l'esecuzione modulare:
 
 ```bash
 # Setup completo (tutti i moduli in ordine)
@@ -163,10 +165,10 @@ sudo ./scripts/setup.sh verify
 
 Questo progetto espone deliberatamente un honeypot su Internet. Le configurazioni documentate includono misure di isolamento (firewall, segmentazione di rete, container sandbox), ma **un sistema esposto a Internet richiede manutenzione costante**: aggiornamenti, monitoraggio dei log, revisione delle regole firewall.
 
-Non replicare questa configurazione senza comprendere i rischi. Un honeypot mal configurato e' una porta aperta sulla tua rete domestica.
+Non replicare questa configurazione senza comprendere i rischi. Un honeypot mal configurato è una porta aperta sulla tua rete domestica.
 
 ---
 
 ## Licenza
 
-Questo repository e' pubblico a scopo educativo. I comandi e le configurazioni documentati sono specifici per il mio ambiente di rete e potrebbero richiedere adattamenti per funzionare correttamente nel vostro.
+Questo repository è pubblico a scopo educativo. I comandi e le configurazioni documentati sono specifici per il mio ambiente di rete e potrebbero richiedere adattamenti per funzionare correttamente nel vostro.
