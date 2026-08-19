@@ -24,6 +24,7 @@ I container sfruttano tre primitive del kernel Linux: **Namespaces** (isolano la
 | [Sicurezza dei Container](docs/sicurezza-container.md) | overlay2, seccomp, AppArmor, Linux capabilities, riepilogo difesa in profondità |
 | [Alternative](docs/alternative.md) | Docker vs Podman vs LXC, Portainer vs Yacht vs Dockge, installazione Podman |
 | [Manutenzione](docs/manutenzione.md) | Comandi utili, domande da analista (compromissione, persistenza dati, reboot, spazio disco), cosa evitare |
+| [Troubleshooting](docs/troubleshooting.md) | Daemon non parte, permessi socket, immagini ARM64, trappola MacVLAN, Docker scavalca UFW, spazio disco, reset Portainer |
 
 ---
 
