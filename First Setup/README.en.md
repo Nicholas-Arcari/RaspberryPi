@@ -12,6 +12,7 @@ This guide covers everything needed to take a Raspberry Pi 5 from "freshly unbox
 2. [First Access and System Update](docs/primo-accesso.en.md) - SSH connection, fingerprint troubleshooting, package updates
 3. [Bootloader (EEPROM)](docs/bootloader.en.md) - Bootloader firmware verification and update
 4. [NVMe Storage](docs/storage-nvme.en.md) - Storage architecture, migration from MicroSD to NVMe, final checklist
+5. [Troubleshooting](docs/troubleshooting.en.md) - NVMe not detected, cmdline.txt, boot order, PCIe Gen 3, SSH fingerprint, under-voltage
 
 ---
 

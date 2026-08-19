@@ -12,6 +12,7 @@ Questa guida copre tutto il necessario per portare un Raspberry Pi 5 da "scatola
 2. [Primo Accesso e Aggiornamento](docs/primo-accesso.md) - Connessione SSH, risoluzione problemi fingerprint, aggiornamento pacchetti
 3. [Bootloader (EEPROM)](docs/bootloader.md) - Verifica e aggiornamento del firmware bootloader
 4. [Storage NVMe](docs/storage-nvme.md) - Architettura storage, migrazione da MicroSD a NVMe, checklist finale
+5. [Troubleshooting](docs/troubleshooting.md) - NVMe non rilevato, cmdline.txt, boot order, PCIe Gen 3, fingerprint SSH, under-voltage
 
 ---
 
