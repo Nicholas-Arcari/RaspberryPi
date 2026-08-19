@@ -24,6 +24,7 @@ Il sistema operativo di base è **OpenMediaVault 7** (Debian-based), scelto per 
 | 8 | [Honeypot](./Honeypot/) | Cowrie SSH/Telnet honeypot con integrazione Wazuh SIEM |
 | 9 | [SOC Analyst](./SOC%20Analyst/) | Ruolo e strumenti dell'analista SOC, con sotto-sezione Wazuh SIEM/XDR |
 | 10 | [Security Assessment & Hardening](./Security%20Assessment%20%26%20Hardening/) | Red teaming del proprio lab: Nmap, Hydra, analisi rischi, firewall tuning |
+| 11 | [Incident Recovery & Resilience](./Incident%20Recovery%20%26%20Resilience/) | Runbook operativi: triage, accesso perso, recovery DNS/Wazuh/VPN, verifica difese, integrita' post-downtime, LAN health check, backup e disaster recovery |
 
 ### Risorse trasversali
 
@@ -119,6 +120,8 @@ Per chi parte da zero, l'ordine consigliato e':
 8. **Honeypot** - Deployment della trappola
 9. **SOC Analyst / Wazuh** - SIEM per monitoraggio centralizzato
 10. **Security Assessment** - Test e validazione dell'intero setup
+
+Una volta costruito e validato il lab, la sezione **[Incident Recovery & Resilience](./Incident%20Recovery%20%26%20Resilience/)** e' il riferimento operativo per gestirlo nel tempo: cosa fare quando qualcosa si rompe, come verificare che le difese funzionino ancora e come recuperare da un disastro. E' la differenza tra un progetto da vetrina e un sistema che qualcuno gestisce davvero.
 
 ---
 
