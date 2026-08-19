@@ -17,6 +17,7 @@ La filosofia è **defense in depth**: nessuna singola misura è sufficiente, ma 
 | [Fail2ban](docs/fail2ban.md) | Protezione brute force: filter, jail, action, configurazione personalizzata |
 | [Firewall UFW + netfilter](docs/firewall-ufw.md) | 5 hook points netfilter, 4 tabelle iptables, connection tracking (conntrack), mapping UFW su iptables, regole per il progetto |
 | [Kernel Hardening + Aggiornamenti](docs/kernel-hardening.md) | Sysctl: SYN cookies, ICMP redirect, rp_filter, ASLR, symlink protection. Unattended upgrades |
+| [Troubleshooting](docs/troubleshooting.md) | Lockout SSH, Fail2ban che non banna o banna te, ordine regole UFW, sysctl non persistenti, FIM senza alert |
 | [Integrazione Wazuh FIM](docs/integrazione-wazuh.md) | Verifica File Integrity Monitoring, test alert, forzare rescan |
 
 ---
