@@ -27,3 +27,4 @@ L'approccio segue il ciclo standard di un penetration test:
 | [Fase 4-6: Remediation](docs/remediation.md) | UFW rules (ordine critico), agent disconnesso, CGNAT + Ngrok, tabella vulnerabilità corrette |
 | [Correlazione eventi + Test finale](docs/correlazione-eventi.md) | Alert Wazuh JSON reale, timeline attacco, query Dashboard, correlazione UFW, test end-to-end |
 | [Threat Model STRIDE](docs/threat-model.md) | Asset, superficie d'attacco, attaccanti, analisi STRIDE per Honeypot/VPN/SIEM/NAS, rischi residui |
+| [Troubleshooting](docs/troubleshooting.md) | Nmap fuorviante, falso positivo honeypot, self-ban Fail2ban, detection gap, agent disconnesso, CGNAT, ordine regole UFW |
