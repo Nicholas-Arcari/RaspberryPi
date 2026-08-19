@@ -29,6 +29,7 @@ A NAS (Network Attached Storage) is a network-attached device dedicated to file 
 | 4 | [OMV Configuration](docs/configurazione-omv.en.md) | Disk management, filesystem, shared folders, SMB/CIFS, NFS, testing from Windows and Linux |
 | 5 | [Plex Media Server](docs/plex.en.md) | Plex installation, verification and access, maintenance tips |
 | 6 | [Alternatives and Comparisons](docs/alternative.en.md) | RPi as NAS (when yes/no), RPi vs Synology/QNAP, alternative SBCs, NAS software (OMV vs TrueNAS vs CasaOS vs Unraid), CasaOS installation |
+| 7 | [Troubleshooting](docs/troubleshooting.en.md) | OMV config regeneration, disk not detected by the UI, unreachable web UI, SMB/NFS, three-layer permission model, Plex |
 
 ---
 
