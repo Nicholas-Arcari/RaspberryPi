@@ -28,6 +28,7 @@ This section contains the tools and configurations related to centralized securi
 | [Alert Fatigue and Tuning](docs/alert-fatigue.en.md) | Tuning strategies: severity levels, syscheck exclusions, aggregation with composite rules, XML examples |
 | [SIEM Comparison: Wazuh vs Splunk](docs/confronto-siem.en.md) | Architectural comparison, reasons for our choice, migration path to Splunk, equivalent configurations |
 | [Incident Response Playbook](docs/incident-response.en.md) | NIST SP 800-61 framework, 3 operational playbooks (honeypot, SSH brute force, FIM), escalation matrix |
+| [SOC Troubleshooting](docs/troubleshooting.en.md) | Silent log source, alert fatigue, detection gap (attack without alert), uncorrelated events, missing visibility |
 
 ---
 

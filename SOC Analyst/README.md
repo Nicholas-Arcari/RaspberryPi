@@ -28,6 +28,7 @@ Questa sezione raccoglie gli strumenti e le configurazioni relativi al monitorag
 | [Alert Fatigue e Tuning](docs/alert-fatigue.md) | Strategie di tuning: livelli di severità, esclusioni syscheck, aggregazione con regole composite, esempi XML |
 | [Confronto SIEM: Wazuh vs Splunk](docs/confronto-siem.md) | Confronto architetturale, motivazioni della scelta, percorso di migrazione a Splunk, configurazioni equivalenti |
 | [Incident Response Playbook](docs/incident-response.md) | Framework NIST SP 800-61, 3 playbook operativi (honeypot, SSH brute force, FIM), matrice di escalation |
+| [Troubleshooting SOC](docs/troubleshooting.md) | Sorgente log muta, alert fatigue, detection gap (attacco senza alert), eventi non correlati, visibilita' mancante |
 
 ---
 
